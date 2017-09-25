@@ -1,3 +1,6 @@
+import threading
+from ihcsdk.ihcclient import IHCSoapClient
+
 class IHCController:
 
     mutex = threading.Lock()
