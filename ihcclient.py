@@ -63,7 +63,7 @@ class IHCSoapClient:
         payload = project_payload.encode( 'utf-8')
         response = self._DoSoapAction( "/ws/ControllerService","getIHCProject",payload)
         if response.status_code != 200:
-            return false
+            return False
         xdoc = xml.etree.ElementTree.fromstring( response.text)
         base64data = xdoc.find( r'./SOAP-ENV:Body/ns1:getIHCProject1/ns1:data',IHCSoapClient.ns).text
         compresseddata = base64.b64decode( base64data)
