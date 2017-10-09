@@ -48,8 +48,9 @@ class IHCController:
             return self.client.SetRuntimeValueInt( id,value)
 
     def GetProject( self) -> str:
-        if self._Project == None:
-            self._Project = self.client.GetProject()
+        with IHCController.mutex:
+          if self._Project == None:
+              self._Project = self.client.GetProject()
         return self._Project
 
     def AddNotifyEvent( self,resourceid : int,callback):
