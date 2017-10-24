@@ -1,7 +1,9 @@
 # Introduction
 
 This is a Python library for making a soap connection to an IHC controller
-(IHC controller is a home automation controller made by LK)
+(IHC controller is a home automation controller made by LK). 
+The primary goal for this library was to make an interface from Home Assistant to IHC, 
+and only the few functions need to do this has been implemented in the library.
 
 The library implements:
 
@@ -9,7 +11,7 @@ The library implements:
 * Get runtime values
 * Set runtime values
 * Notification when a resource changes. 
-* 
+ 
 ## Examples
 
 See the examples folder.
@@ -18,6 +20,10 @@ For more infomation about this library look at
 
 http://www.dingus.dk/ihc-soap-client-python/
 
+# Note
+
+From version 1.0.2 (first release), folder structure has been changed to make is easier
+to have the libray included in PyPi. The library files are now in the ihcsdk subfolder
 
 # License
 
