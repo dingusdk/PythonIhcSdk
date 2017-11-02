@@ -23,7 +23,7 @@
   <ItemGroup>
     <Compile Include="ihcsdk\ihcclient.py" />
     <Compile Include="ihcsdk\ihccontroller.py" />
-    <Compile Include="Examples/ihctest.py" />
+    <Compile Include="Examples\ihctest.py" />
     <Compile Include="setup.py">
       <SubType>Code</SubType>
     </Compile>

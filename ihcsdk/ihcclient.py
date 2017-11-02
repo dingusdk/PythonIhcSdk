@@ -24,7 +24,10 @@ class IHCSoapClient:
         self.Username = username
         self.Password = password
 
-        auth_payload = """<s:Envelope xmlns:s=\"http://schemas.xmlsoap.org/soap/envelope/\">
+        auth_payload = """<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+        <s:Envelope xmlns:s=\"http://schemas.xmlsoap.org/soap/envelope/\" 
+          xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\"
+          xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\">
         <s:Body>
         <authenticate1 xmlns=\"utcs\" xmlns:i=\"http://www.w3.org/2001/XMLSchema-instance\">
         <password>{password}</password>
@@ -42,16 +45,65 @@ class IHCSoapClient:
                 "SOAPAction": "authenticate"}
 
         response = requests.post( url=self.Url + "/ws/AuthenticationService",headers=headers,data=payload)
+        if response.status_code != 200:
+            return False
         self.cookies = response.cookies
-        xdoc = xml.etree.ElementTree.fromstring( response.text)
+        try:
+          xdoc = xml.etree.ElementTree.fromstring( response.text)
+        except xml.etree.ElementTree.ParseError: 
+          return False
         ok = xdoc.find( r'./SOAP-ENV:Body/ns1:authenticate2/ns1:loginWasSuccessful',IHCSoapClient.ns)
         return ok.text == 'true'
 
+    def GetState( self) -> str:
+        payload = """<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+        <s:Envelope xmlns:s=\"http://schemas.xmlsoap.org/soap/envelope/\" 
+          xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\"
+          xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\">
+        <s:Body>
+        </s:Body>
+        </s:Envelope>"""
+        response = self._DoSoapAction( "/ws/ControllerService","getState",payload)
+        if response.status_code != 200:
+            return "error"
+        self.cookies = response.cookies
+        try:
+          xdoc = xml.etree.ElementTree.fromstring( response.text)
+        except xml.etree.ElementTree.ParseError: 
+          return "error"
+        node = xdoc.find( r'./SOAP-ENV:Body/ns1:getState1/ns1:state',IHCSoapClient.ns)
+        return node.text
+
+    def WaitForControllerStateChange( self,state:str,waitsec) -> str:
+        payload = """<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+        <s:Envelope xmlns:s=\"http://schemas.xmlsoap.org/soap/envelope/\" 
+          xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\"
+          xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\">
+        <s:Body>
+          <ns1:waitForControllerStateChange1 xmlns:ns1=\"utcs\" xsi:type=\"ns1:WSControllerState\">
+            <ns1:state xsi:type=\"xsd:string\">{state}</ns1:state>
+          </ns1:waitForControllerStateChange1>
+          <ns2:waitForControllerStateChange2 xmlns:ns2=\"utcs\" xsi:type=\"xsd:int\">{wait}</ns2:waitForControllerStateChange2>
+        </s:Body>
+        </s:Envelope>""".format( state=state,wait=waitsec)
+        response = self._DoSoapAction( "/ws/ControllerService","waitForControllerStateChange",payload)
+        if response.status_code != 200:
+            return "error"
+        self.cookies = response.cookies
+        try:
+          xdoc = xml.etree.ElementTree.fromstring( response.text)
+        except xml.etree.ElementTree.ParseError: 
+          return "error"
+        node = xdoc.find( r'./SOAP-ENV:Body/ns1:waitForControllerStateChange3/ns1:state',IHCSoapClient.ns)
+        return node.text
+      
+      
 
     def _DoSoapAction( self,service : str,action : str,payload : str):
         """ Internal function to do the soap request """
-        headers = {"Host": self.Url,
-                "Content-Type": "application/soap+xml; charset=UTF-8",
+        headers = { "Host": self.Url,
+                "Content-Type": "text/xml; charset=UTF-8",
+                "Cache-Control": "no-cache",
                 "Content-Length": str(len(payload)),
                 "SOAPAction": action}
         response = requests.post( url=self.Url + service,headers=headers,data=payload,cookies=self.cookies)
@@ -75,7 +127,10 @@ class IHCSoapClient:
         else:
             boolvalue = "false"
 
-        payload = """<s:Envelope xmlns:s=\"http://schemas.xmlsoap.org/soap/envelope/\">
+        payload = """<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+            <s:Envelope xmlns:s=\"http://schemas.xmlsoap.org/soap/envelope/\" 
+              xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\"
+              xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\">
             <s:Body>
             <setResourceValue1 xmlns=\"utcs\" xmlns:i=\"http://www.w3.org/2001/XMLSchema-instance\">
             <value i:type=\"a:WSBooleanValue\" xmlns:a=\"utcs.values\">
@@ -95,7 +150,10 @@ class IHCSoapClient:
 
     def SetRuntimeValueInt( self,resourceid : int,intvalue : int):
 
-        payload = """<s:Envelope xmlns:s=\"http://schemas.xmlsoap.org/soap/envelope/\">
+        payload = """<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+            <s:Envelope xmlns:s=\"http://schemas.xmlsoap.org/soap/envelope/\" 
+              xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\"
+              xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\">
             <s:Body>
             <setResourceValue1 xmlns=\"utcs\" xmlns:i=\"http://www.w3.org/2001/XMLSchema-instance\">
             <value i:type=\"a:WSIntegerValue\" xmlns:a=\"utcs.values\">
@@ -114,7 +172,10 @@ class IHCSoapClient:
         return result == "true"
 
     def SetRuntimeValueFloat( self,resourceid : int,floatvalue: float):
-        payload = """<s:Envelope xmlns:s=\"http://schemas.xmlsoap.org/soap/envelope/\">
+        payload = """<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+            <s:Envelope xmlns:s=\"http://schemas.xmlsoap.org/soap/envelope/\" 
+              xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\"
+              xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\">
             <s:Body>
             <setResourceValue1 xmlns=\"utcs\" xmlns:i=\"http://www.w3.org/2001/XMLSchema-instance\">
             <value i:type=\"a:WSFloatingPointValue\" xmlns:a=\"utcs.values\">
@@ -133,7 +194,10 @@ class IHCSoapClient:
         return result == "true"
 
     def GetRuntimeValue( self,resourceid: int):
-        payload = """<s:Envelope xmlns:s=\"http://schemas.xmlsoap.org/soap/envelope/\">
+        payload = """<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+            <s:Envelope xmlns:s=\"http://schemas.xmlsoap.org/soap/envelope/\" 
+              xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\"
+              xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\">
             <s:Body>
             <getRuntimeValue1 xmlns="utcs">{id}</getRuntimeValue1>
             </soap:Body></soap:Envelope>""".format( id=resourceid)
@@ -154,7 +218,10 @@ class IHCSoapClient:
          
 
     def EnableRuntimeValueNotifications( self,resourceid : int):
-        payload = """<s:Envelope xmlns:s=\"http://schemas.xmlsoap.org/soap/envelope/\">
+        payload = """<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+            <s:Envelope xmlns:s=\"http://schemas.xmlsoap.org/soap/envelope/\" 
+              xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\"
+              xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\">
             <s:Body>
             <enableRuntimeValueNotifications1 xmlns=\"utcs\" xmlns:a=\"http://www.w3.org/2001/XMLSchema\" xmlns:i=\"http://www.w3.org/2001/XMLSchema-instance\">
             <a:arrayItem>{id}</a:arrayItem>
@@ -169,7 +236,10 @@ class IHCSoapClient:
         Long polling for changes and return a dictionary with resource, value for changes
         """
         changes = {}
-        payload = """<s:Envelope xmlns:s=\"http://schemas.xmlsoap.org/soap/envelope/\">
+        payload = """<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+            <s:Envelope xmlns:s=\"http://schemas.xmlsoap.org/soap/envelope/\" 
+              xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\"
+              xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\">
             <s:Body><waitForResourceValueChanges1 xmlns=\"utcs\">{timeout}</waitForResourceValueChanges1>
             </s:Body></s:Envelope>""".format( timeout=wait)
         response = self._DoSoapAction( "/ws/ResourceInteractionService","waitForResourceValueChanges",payload)

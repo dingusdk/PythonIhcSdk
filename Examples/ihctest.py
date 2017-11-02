@@ -19,6 +19,18 @@ if not ihc.Authenticate():
 
 print( "Authenticate succeeded\r\n")
 
+state = ihc.client.GetState()
+print( "Controller state: " + state);
+if state != "text.ctrl.state.ready":
+  # Wait for ready state
+  state = ihc.client.WaitForControllerStateChange( "text.ctrl.state.ready",10)
+  print( "Controller state: " + state);
+
+# read project
+project = ihc.GetProject()
+if project == False:
+  print( "Failed to ead project")
+
 value = ihc.GetRuntimeValue( resid)
 print( "Runtime value: " + str( value))
 ihc.SetRuntimeValueBool( resid,not value) 
