@@ -1,10 +1,14 @@
+"""
+Setup of the ihcsdk module
+"""
 from setuptools import setup
 
 setup(
     name='ihcsdk',
-    version='1.0.3',
+    version='1.0.4',
     description='IHC Python SDK',
-    long_description='SDK for connection to the LK IHC Controller. (Made for interfacing to home assistant)',
+    long_description=("SDK for connection to the LK IHC Controller. "
+                      "Made for interfacing to home assistant"),
     author='Jens Nielsen',
     url='https://github.com/dingusdk/PythonIhcSdk',
     packages=['ihcsdk'],

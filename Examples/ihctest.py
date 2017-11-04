@@ -1,43 +1,41 @@
-import ihcsdk.ihcclient
-import sys
-from ihcsdk.ihccontroller import IHCController
+"""
+Test example showing how to use the ihcsdk to connect to the ihc controller
+"""
 from sys import argv
+from ihcsdk.ihccontroller import IHCController
 
-def IhcChange( id,v):
-   print( "Resource change " + str( id) + "->" + str( v))
+def on_ihc_change(ihcid, value):
+    """Callback when ihc resource changes"""
+    print("Resource change " + str(ihcid) + "->" + str(value))
 
+def main():
+    """Do the test"""
+    if len(argv) != 5:
+        print("Syntax: ihctest ihcurl username password resourceid")
+        exit()
+    resid = int(argv[4])
+    ihc = IHCController(argv[1], argv[2], argv[3])
+    if not ihc.Authenticate():
+        print("Authenticate failed")
+        exit()
 
-if len( argv) != 5:
-    print( "Syntax: ihctest ihcurl username password resourceid")
-    exit()
+    print("Authenticate succeeded\r\n")
 
-resid = int( argv[4])
-ihc = IHCController( argv[1],argv[2],argv[3])
-if not ihc.Authenticate():
-    print( "Authenticate failed")
-    exit()
+    # read project
+    project = ihc.GetProject()
+    if project is False:
+        print("Failed to read project")
+    else:
+        print("Project downloaded successfully")
 
-print( "Authenticate succeeded\r\n")
+    runtimevalue = ihc.GetRuntimeValue(resid)
+    print("Runtime value: " + str(runtimevalue))
+    ihc.SetRuntimeValueBool(resid, not runtimevalue)
+    runtimevalue = ihc.GetRuntimeValue(resid)
+    print("Runtime value: " + str(runtimevalue))
 
-state = ihc.client.GetState()
-print( "Controller state: " + state);
-if state != "text.ctrl.state.ready":
-  # Wait for ready state
-  state = ihc.client.WaitForControllerStateChange( "text.ctrl.state.ready",10)
-  print( "Controller state: " + state);
+    ihc.AddNotifyEvent(resid, on_ihc_change)
 
-# read project
-project = ihc.GetProject()
-if project == False:
-  print( "Failed to ead project")
+    input()
 
-value = ihc.GetRuntimeValue( resid)
-print( "Runtime value: " + str( value))
-ihc.SetRuntimeValueBool( resid,not value) 
-value = ihc.GetRuntimeValue( resid)
-print( "Runtime value: " + str( value))
-
-ihc.AddNotifyEvent( resid,IhcChange)
-
-input()
-
+main()
