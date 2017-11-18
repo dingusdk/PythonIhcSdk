@@ -22,6 +22,9 @@ http://www.dingus.dk/ihc-soap-client-python/
 
 # Note
 
+Version 2.x.x has changed the naming to make pylint happy, so if you are upgrading from 
+version 1.x.x you will have to make changes to your code. 
+
 From version 1.0.2 (first release), folder structure has been changed to make is easier
 to have the libray included in PyPi. The library files are now in the ihcsdk subfolder
 

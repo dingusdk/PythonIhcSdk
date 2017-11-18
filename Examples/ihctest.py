@@ -13,28 +13,39 @@ def main():
     if len(argv) != 5:
         print("Syntax: ihctest ihcurl username password resourceid")
         exit()
+    url = argv[1]
     resid = int(argv[4])
-    ihc = IHCController(argv[1], argv[2], argv[3])
-    if not ihc.Authenticate():
+    ihc = IHCController(url, argv[2], argv[3])
+# Un-comment the line below to use pycurl connection
+#    ihc.client.connection = IHCCurlConnection( url)
+    if not ihc.authenticate():
         print("Authenticate failed")
         exit()
 
     print("Authenticate succeeded\r\n")
 
     # read project
-    project = ihc.GetProject()
+    project = ihc.get_project()
     if project is False:
         print("Failed to read project")
     else:
         print("Project downloaded successfully")
 
-    runtimevalue = ihc.GetRuntimeValue(resid)
+    log = ihc.client.get_user_log()
+    if log:
+        print("log: " + log)
+
+    runtimevalue = ihc.get_runtime_value(resid)
     print("Runtime value: " + str(runtimevalue))
-    ihc.SetRuntimeValueBool(resid, not runtimevalue)
-    runtimevalue = ihc.GetRuntimeValue(resid)
+    ihc.set_runtime_value_bool(resid, not runtimevalue)
+    runtimevalue = ihc.get_runtime_value(resid)
     print("Runtime value: " + str(runtimevalue))
 
-    ihc.AddNotifyEvent(resid, on_ihc_change)
+    #ihc.client.enable_runtime_notifications( resid)
+    #changes = ihc.client.wait_for_resource_value_changes( 10)
+    #print( repr( changes))
+
+    ihc.add_notify_event(resid, on_ihc_change)
 
     input()
 

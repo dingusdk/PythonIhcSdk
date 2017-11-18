@@ -6,13 +6,14 @@
     <ProjectGuid>{9bf98da8-003a-40b7-8437-734f6982b724}</ProjectGuid>
     <ProjectHome />
     <StartupFile>Examples\ihctest.py</StartupFile>
-    <SearchPath />
+    <SearchPath>
+    </SearchPath>
     <WorkingDirectory>.</WorkingDirectory>
     <OutputPath>.</OutputPath>
     <ProjectTypeGuids>{888888a0-9f3d-457c-b088-3a5042f75d52}</ProjectTypeGuids>
     <LaunchProvider>Standard Python launcher</LaunchProvider>
     <InterpreterId>Global|PythonCore|3.6</InterpreterId>
-    <CommandLineArguments>http://192.168.1.3 admin flipperi 2112786</CommandLineArguments>
+    <CommandLineArguments>http://ihc admin flipperi 2112786</CommandLineArguments>
     <EnableNativeCodeDebugging>False</EnableNativeCodeDebugging>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)' == 'Debug'" />
@@ -22,8 +23,14 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="ihcsdk\ihcclient.py" />
+    <Compile Include="ihcsdk\ihcconnection.py">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="ihcsdk\ihccontroller.py" />
     <Compile Include="Examples\ihctest.py" />
+    <Compile Include="ihcsdk\ihccurlconnection.py" />
+    <Compile Include="ihcsdk\ihcsslconnection.py" />
+    <Compile Include="ihcsdk\__init__.py" />
     <Compile Include="setup.py">
       <SubType>Code</SubType>
     </Compile>
