@@ -1,5 +1,6 @@
 """
 Wraps the ihcclient in a more user friendly interface to handle lost connection
+Notify thread to handle change notifications
 """
 # pylint: disable=invalid-name, bare-except
 import threading
@@ -31,7 +32,7 @@ class IHCController:
                 self.client.enable_runtime_notifications(ihcid)
             return True
 
-    def Disconnect(self):
+    def disconnect(self):
         """Disconnect by stopping the notification thread
         TODO call disconnect on ihcclient
         """
@@ -101,6 +102,7 @@ class IHCController:
                 changes = self.client.wait_for_resource_value_changes()
                 if changes is False:
                     self.re_authenticate()
+                    continue
                 for ihcid in changes:
                     value = changes[ihcid]
                     if ihcid in self._ihcevents:

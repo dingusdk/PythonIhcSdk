@@ -6,8 +6,6 @@ from re import match
 import pycurl
 from ihcsdk.ihcconnection import IHCConnection
 
-
-
 class IHCCurlConnection(IHCConnection):
     """description of class"""
 
