@@ -2,7 +2,7 @@
 Wraps the ihcclient in a more user friendly interface to handle lost connection
 Notify thread to handle change notifications
 """
-# pylint: disable=invalid-name, bare-except
+# pylint: disable=invalid-name, bare-except, too-many-instance-attributes
 import threading
 import time
 from ihcsdk.ihcclient import IHCSoapClient, IHCSTATE_READY
@@ -21,6 +21,7 @@ class IHCController:
         self._ihcevents = {}
         self._notifythread = threading.Thread(target=self._notify_fn)
         self._notifyrunning = False
+        self._newnotifyids = []
         self._project = None
 
     def authenticate(self) -> bool:
@@ -28,8 +29,8 @@ class IHCController:
         with IHCController._mutex:
             if not self.client.authenticate(self._username, self._password):
                 return False
-            for ihcid in self._ihcevents:
-                self.client.enable_runtime_notifications(ihcid)
+            if self._ihcevents:
+                self.client.enable_runtime_notifications(self._ihcevents.keys())
             return True
 
     def disconnect(self):
@@ -80,15 +81,21 @@ class IHCController:
                 self._project = self.client.get_project()
         return self._project
 
-    def add_notify_event(self, resourceid: int, callback):
-        """ Add a notify callback for a specified resource id"""
+    def add_notify_event(self, resourceid: int, callback, delayed=False):
+        """ Add a notify callback for a specified resource id
+        If delayed is set to true the enable request will be send from the
+        notofication thread
+        """
         with IHCController._mutex:
             if resourceid in self._ihcevents:
                 self._ihcevents[resourceid].append(callback)
             else:
                 self._ihcevents[resourceid] = [callback]
-                if not self.client.enable_runtime_notifications(resourceid):
-                    return False
+                if delayed:
+                    self._newnotifyids.append(resourceid)
+                else:
+                    if not self.client.enable_runtime_notification(resourceid):
+                        return False
             if not self._notifyrunning:
                 self._notifythread.start()
 
@@ -99,6 +106,12 @@ class IHCController:
         self._notifyrunning = True
         while self._notifyrunning:
             try:
+                with IHCController._mutex:
+                    # Are there are any new ids to be added?
+                    if self._newnotifyids:
+                        self.client.enable_runtime_notifications(self._newnotifyids)
+                        self._newnotifyids = []
+
                 changes = self.client.wait_for_resource_value_changes()
                 if changes is False:
                     self.re_authenticate()

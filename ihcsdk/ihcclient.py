@@ -174,16 +174,24 @@ class IHCSoapClient:
             return float(floatresult.text)
         return False
 
-    def enable_runtime_notifications(self, resourceid: int):
+    def enable_runtime_notification(self, resourceid: int):
         """Enable notification for specified resource id"""
+        return self.enable_runtime_notifications([resourceid])
+
+    def enable_runtime_notifications(self, resourceids):
+        """Enable notification for specified resource ids"""
+        idsarr = ""
+        for ihcid in resourceids:
+            idsarr += "<a:arrayItem>{id}</a:arrayItem>".format(id=ihcid)
+
         payload = """<enableRuntimeValueNotifications1 xmlns=\"utcs\"
                      xmlns:a=\"http://www.w3.org/2001/XMLSchema\" 
                      xmlns:i=\"http://www.w3.org/2001/XMLSchema-instance\">
-                     <a:arrayItem>{id}</a:arrayItem>
+                     {arr}
                      </enableRuntimeValueNotifications1>
-                     """.format(id=resourceid)
+                     """.format(arr=idsarr)
         xdoc = self.connection.soap_action('/ws/ResourceInteractionService',
-                                           'getResourceValue',
+                                           'enableRuntimeValueNotifications',
                                            payload)
         if not xdoc:
             return False
