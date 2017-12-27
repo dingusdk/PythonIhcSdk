@@ -5,7 +5,7 @@ from setuptools import setup
 
 setup(
     name='ihcsdk',
-    version='2.1.0',
+    version='2.1.1',
     description='IHC Python SDK',
     long_description=("SDK for connection to the LK IHC Controller. "
                       "Made for interfacing to home assistant"),

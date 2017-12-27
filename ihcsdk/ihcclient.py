@@ -241,6 +241,5 @@ class IHCSoapClient:
                                    IHCSoapClient.ihcns).text
             if not base64data:
                 return False
-            compresseddata = base64.b64decode(base64data)
-            return zlib.decompress(compresseddata, 16+zlib.MAX_WBITS).decode('ISO-8859-1')
+            return base64.b64decode(base64data).decode('UTF-8')
         return False
