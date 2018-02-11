@@ -8,13 +8,14 @@ from ihcsdk.ihcconnection import IHCConnection
 
 IHCSTATE_READY = "text.ctrl.state.ready"
 
+
 class IHCSoapClient:
     """Implements a limited set of the soap request for the IHC controller"""
 
-    ihcns = {'SOAP-ENV':"http://schemas.xmlsoap.org/soap/envelope/",
-             'ns1':'utcs',
-             'ns2':'utcs.values',
-             'ns3':'utcs.values'}
+    ihcns = {'SOAP-ENV': "http://schemas.xmlsoap.org/soap/envelope/",
+             'ns1': 'utcs',
+             'ns2': 'utcs.values',
+             'ns3': 'utcs.values'}
 
     def __init__(self, url: str):
         """Initialize the IIHCSoapClient with a url for the controller"""
@@ -23,10 +24,11 @@ class IHCSoapClient:
         self.password = ""
         self.connection = IHCConnection(url)
 
-
     def authenticate(self, username: str, password: str) -> bool:
         """Do an Authentricate request and save the cookie returned to be used
-        on the following requests. Return True if the request was successfull"""
+        on the following requests.
+        Return True if the request was successfull
+        """
         self.username = username
         self.password = password
 
@@ -39,16 +41,19 @@ class IHCSoapClient:
         payload = auth_payload.format(password=self.password,
                                       username=self.username)
 
-        xdoc = self.connection.soap_action('/ws/AuthenticationService', 'authenticate', payload)
+        xdoc = self.connection.soap_action(
+            '/ws/AuthenticationService', 'authenticate', payload)
         if xdoc:
-            isok = xdoc.find('./SOAP-ENV:Body/ns1:authenticate2/ns1:loginWasSuccessful',
-                             IHCSoapClient.ihcns)
+            isok = xdoc.find(
+                './SOAP-ENV:Body/ns1:authenticate2/ns1:loginWasSuccessful',
+                IHCSoapClient.ihcns)
             return isok.text == 'true'
         return False
 
     def get_state(self) -> str:
         """Get the controller state"""
-        xdoc = self.connection.soap_action('/ws/ControllerService', 'getState', "")
+        xdoc = self.connection.soap_action('/ws/ControllerService',
+                                           'getState', "")
         if xdoc:
             return xdoc.find('./SOAP-ENV:Body/ns1:getState1/ns1:state',
                              IHCSoapClient.ihcns).text
@@ -60,7 +65,7 @@ class IHCSoapClient:
                      xmlns:ns1=\"utcs\" xsi:type=\"ns1:WSControllerState\">
                      <ns1:state xsi:type=\"xsd:string\">{state}</ns1:state>
                      </ns1:waitForControllerStateChange1>
-                     <ns2:waitForControllerStateChange2 
+                     <ns2:waitForControllerStateChange2
                      xmlns:ns2=\"utcs\" xsi:type=\"xsd:int\">
                      {wait}</ns2:waitForControllerStateChange2>
                      """.format(state=state, wait=waitsec)
@@ -68,21 +73,24 @@ class IHCSoapClient:
                                            'waitForControllerStateChange',
                                            payload)
         if xdoc:
-            return xdoc.find('./SOAP-ENV:Body/ns1:waitForControllerStateChange3/ns1:state',
-                             IHCSoapClient.ihcns).text
+            return xdoc.find(
+                './SOAP-ENV:Body/ns1:waitForControllerStateChange3/ns1:state',
+                IHCSoapClient.ihcns).text
         return False
-
 
     def get_project(self) -> str:
         """Get the ihc project"""
-        xdoc = self.connection.soap_action('/ws/ControllerService', 'getIHCProject', "")
+        xdoc = self.connection.soap_action('/ws/ControllerService',
+                                           'getIHCProject', "")
         if xdoc:
-            base64data = xdoc.find(r'./SOAP-ENV:Body/ns1:getIHCProject1/ns1:data',
-                                   IHCSoapClient.ihcns).text
+            base64data = xdoc.find(
+                './SOAP-ENV:Body/ns1:getIHCProject1/ns1:data',
+                IHCSoapClient.ihcns).text
             if not base64:
                 return False
             compresseddata = base64.b64decode(base64data)
-            return zlib.decompress(compresseddata, 16+zlib.MAX_WBITS).decode('ISO-8859-1')
+            return zlib.decompress(compresseddata,
+                                   16+zlib.MAX_WBITS).decode('ISO-8859-1')
         return False
 
     def set_runtime_value_bool(self, resourceid: int, value: bool) -> bool:
@@ -92,26 +100,28 @@ class IHCSoapClient:
         else:
             boolvalue = "false"
 
-        payload = """<setResourceValue1 xmlns=\"utcs\"
-                     xmlns:i=\"http://www.w3.org/2001/XMLSchema-instance\">
-                     <value i:type=\"a:WSBooleanValue\" xmlns:a=\"utcs.values\">
-                     <a:value>{value}</a:value></value>
-                     <typeString/>
-                     <resourceID>{id}</resourceID>
-                     <isValueRuntime>true</isValueRuntime>
-                     </setResourceValue1>
-                     """.format(id=resourceid, value=boolvalue)
+        payload = """
+            <setResourceValue1 xmlns=\"utcs\"
+            xmlns:i=\"http://www.w3.org/2001/XMLSchema-instance\">
+            <value i:type=\"a:WSBooleanValue\" xmlns:a=\"utcs.values\">
+            <a:value>{value}</a:value></value>
+            <typeString/>
+            <resourceID>{id}</resourceID>
+            <isValueRuntime>true</isValueRuntime>
+            </setResourceValue1>
+            """.format(id=resourceid, value=boolvalue)
         xdoc = self.connection.soap_action('/ws/ResourceInteractionService',
                                            'setResourceValue', payload)
         if xdoc:
-            result = xdoc.find(r'./SOAP-ENV:Body/ns1:setResourceValue2', IHCSoapClient.ihcns).text
+            result = xdoc.find(r'./SOAP-ENV:Body/ns1:setResourceValue2',
+                               IHCSoapClient.ihcns).text
             return result == "true"
         return False
 
     def set_runtime_value_int(self, resourceid: int, intvalue: int):
         """Set a integer runtime value"""
         payload = """
-            <setResourceValue1 xmlns=\"utcs\" 
+            <setResourceValue1 xmlns=\"utcs\"
             xmlns:i=\"http://www.w3.org/2001/XMLSchema-instance\">
             <value i:type=\"a:WSIntegerValue\" xmlns:a=\"utcs.values\">
             <a:integer>{value}</a:integer></value>
@@ -123,14 +133,15 @@ class IHCSoapClient:
         xdoc = self.connection.soap_action('/ws/ResourceInteractionService',
                                            'setResourceValue', payload)
         if xdoc:
-            result = xdoc.find(r'./SOAP-ENV:Body/ns1:setResourceValue2', IHCSoapClient.ihcns).text
+            result = xdoc.find('./SOAP-ENV:Body/ns1:setResourceValue2',
+                               IHCSoapClient.ihcns).text
             return result == "true"
         return False
 
     def set_runtime_value_float(self, resourceid: int, floatvalue: float):
         """Set a flot runtime value"""
         payload = """
-            <setResourceValue1 xmlns=\"utcs\" 
+            <setResourceValue1 xmlns=\"utcs\"
             xmlns:i=\"http://www.w3.org/2001/XMLSchema-instance\">
             <value i:type=\"a:WSFloatingPointValue\" xmlns:a=\"utcs.values\">
             <a:floatingPointValue>{value}</a:floatingPointValue></value>
@@ -143,7 +154,8 @@ class IHCSoapClient:
         xdoc = self.connection.soap_action('/ws/ResourceInteractionService',
                                            'setResourceValue', payload)
         if xdoc:
-            result = xdoc.find(r'./SOAP-ENV:Body/ns1:setResourceValue2', IHCSoapClient.ihcns).text
+            result = xdoc.find('./SOAP-ENV:Body/ns1:setResourceValue2',
+                               IHCSoapClient.ihcns).text
             return result == "true"
         return False
 
@@ -159,18 +171,21 @@ class IHCSoapClient:
                                            payload)
         if not xdoc:
             return False
-        boolresult = xdoc.find(r'./SOAP-ENV:Body/ns1:getRuntimeValue2/ns1:value/ns2:value',
-                               IHCSoapClient.ihcns)
-        if boolresult != None:
+        boolresult = xdoc.find(
+            './SOAP-ENV:Body/ns1:getRuntimeValue2/ns1:value/ns2:value',
+            IHCSoapClient.ihcns)
+        if boolresult is not None:
             return boolresult.text == "true"
-        intresult = xdoc.find(r'./SOAP-ENV:Body/ns1:getRuntimeValue2/ns1:value/ns2:integer',
-                              IHCSoapClient.ihcns)
-        if intresult != None:
+        intresult = xdoc.find(
+            './SOAP-ENV:Body/ns1:getRuntimeValue2/ns1:value/ns2:integer',
+            IHCSoapClient.ihcns)
+        if intresult is not None:
             return int(intresult.text)
         floatresult = xdoc.find(
-            r'./SOAP-ENV:Body/ns1:getRuntimeValue2/ns1:value/ns2:floatingPointValue',
+            ('./SOAP-ENV:Body/ns1:getRuntimeValue2/'
+             'ns1:value/ns2:floatingPointValue'),
             IHCSoapClient.ihcns)
-        if floatresult != None:
+        if floatresult is not None:
             return float(floatresult.text)
         return False
 
@@ -185,7 +200,7 @@ class IHCSoapClient:
             idsarr += "<a:arrayItem>{id}</a:arrayItem>".format(id=ihcid)
 
         payload = """<enableRuntimeValueNotifications1 xmlns=\"utcs\"
-                     xmlns:a=\"http://www.w3.org/2001/XMLSchema\" 
+                     xmlns:a=\"http://www.w3.org/2001/XMLSchema\"
                      xmlns:i=\"http://www.w3.org/2001/XMLSchema-instance\">
                      {arr}
                      </enableRuntimeValueNotifications1>
@@ -197,7 +212,7 @@ class IHCSoapClient:
             return False
         return True
 
-    def wait_for_resource_value_changes(self, wait: int = 10):
+    def wait_for_resource_value_changes(self, wait: int=10):
         """
         Long polling for changes and return a dictionary with resource:value
         for changes
@@ -210,21 +225,23 @@ class IHCSoapClient:
                                            'getResourceValue', payload)
         if not xdoc:
             return False
-        result = xdoc.findall(r'./SOAP-ENV:Body/ns1:waitForResourceValueChanges2/ns1:arrayItem',
-                              IHCSoapClient.ihcns)
+        result = xdoc.findall(
+            './SOAP-ENV:Body/ns1:waitForResourceValueChanges2/ns1:arrayItem',
+            IHCSoapClient.ihcns)
         for item in result:
             ihcid = item.find('ns1:resourceID', IHCSoapClient.ihcns)
             if ihcid is None:
                 continue
-            bvalue = item.find(r'./ns1:value/ns2:value', IHCSoapClient.ihcns)
-            if bvalue != None:
+            bvalue = item.find('./ns1:value/ns2:value', IHCSoapClient.ihcns)
+            if bvalue is not None:
                 changes[int(ihcid.text)] = bvalue.text == 'true'
                 continue
-            ivalue = item.find(r'./ns1:value/ns3:integer', IHCSoapClient.ihcns)
-            if ivalue != None:
+            ivalue = item.find('./ns1:value/ns3:integer', IHCSoapClient.ihcns)
+            if ivalue is not None:
                 changes[int(ihcid.text)] = int(ivalue.text)
-            fvalue = item.find(r'./ns1:value/ns2:floatingPointValue', IHCSoapClient.ihcns)
-            if fvalue != None:
+            fvalue = item.find('./ns1:value/ns2:floatingPointValue',
+                               IHCSoapClient.ihcns)
+            if fvalue is not None:
                 changes[int(ihcid.text)] = float(fvalue.text)
         return changes
 

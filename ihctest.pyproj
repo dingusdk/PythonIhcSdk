@@ -12,9 +12,10 @@
     <OutputPath>.</OutputPath>
     <ProjectTypeGuids>{888888a0-9f3d-457c-b088-3a5042f75d52}</ProjectTypeGuids>
     <LaunchProvider>Standard Python launcher</LaunchProvider>
-    <InterpreterId>Global|PythonCore|3.6</InterpreterId>
+    <InterpreterId>Global|PythonCore|3.5</InterpreterId>
     <CommandLineArguments>http://ihc admin flipperi 2112786</CommandLineArguments>
     <EnableNativeCodeDebugging>False</EnableNativeCodeDebugging>
+    <IsWindowsApplication>False</IsWindowsApplication>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)' == 'Debug'" />
   <PropertyGroup Condition="'$(Configuration)' == 'Release'" />
@@ -36,15 +37,15 @@
     </Compile>
   </ItemGroup>
   <ItemGroup>
-    <InterpreterReference Include="Global|PythonCore|3.6" />
-  </ItemGroup>
-  <ItemGroup>
     <Folder Include="Examples\" />
     <Folder Include="ihcsdk\" />
   </ItemGroup>
   <ItemGroup>
     <Content Include="license.txt" />
     <Content Include="readme.md" />
+  </ItemGroup>
+  <ItemGroup>
+    <InterpreterReference Include="Global|PythonCore|3.5" />
   </ItemGroup>
   <Import Project="$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v$(VisualStudioVersion)\Python Tools\Microsoft.PythonTools.targets" />
 </Project>

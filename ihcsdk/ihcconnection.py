@@ -3,11 +3,12 @@
 import xml.etree.ElementTree
 import requests
 
+
 class IHCConnection(object):
     """description of class"""
 
     soapenvelope = """<?xml version=\"1.0\" encoding=\"UTF-8\"?>
-        <s:Envelope xmlns:s=\"http://schemas.xmlsoap.org/soap/envelope/\" 
+        <s:Envelope xmlns:s=\"http://schemas.xmlsoap.org/soap/envelope/\"
           xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\"
           xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\">
         <s:Body>{body}</s:Body></s:Envelope>"""
@@ -17,6 +18,8 @@ class IHCConnection(object):
         self.url = url
         self.cookies = ""
         self.verify = False
+        self.last_exception = None
+        self.last_response = None
 
     def soap_action(self, service, action, payloadbody):
         """Do a soap request."""
@@ -26,13 +29,21 @@ class IHCConnection(object):
                    "Cache-Control": "no-cache",
                    "Content-Length": str(len(payload)),
                    "SOAPAction": action}
-        response = requests.post(url=self.url + service, headers=headers,
-                                 data=payload, cookies=self.cookies)
+        try:
+            self.last_exception = None
+            response = requests.post(url=self.url + service, headers=headers,
+                                     data=payload, cookies=self.cookies)
+        except requests.exceptions.RequestException as exp:
+            self.last_exception = exp
+            return False
         if response.status_code != 200:
+            self.last_response = response
             return False
         self.cookies = response.cookies
         try:
             xdoc = xml.etree.ElementTree.fromstring(response.text)
-        except xml.etree.ElementTree.ParseError:
+        except xml.etree.ElementTree.ParseError as exp:
+            self.last_exception = exp
+            self.last_response = response
             return False
         return xdoc
