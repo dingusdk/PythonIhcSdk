@@ -187,6 +187,12 @@ class IHCSoapClient:
             IHCSoapClient.ihcns)
         if floatresult is not None:
             return float(floatresult.text)
+        enumNameResut = xdoc.find(
+            ('./SOAP-ENV:Body/ns1:getRuntimeValue2/'
+             'ns1:value/ns2:enumName'),
+            IHCSoapClient.ihcns)
+        if enumNameResut is not None:
+            return enumNameResut.text
         return False
 
     def enable_runtime_notification(self, resourceid: int):
@@ -243,6 +249,12 @@ class IHCSoapClient:
                                IHCSoapClient.ihcns)
             if fvalue is not None:
                 changes[int(ihcid.text)] = float(fvalue.text)
+                continue
+            
+            enumName = item.find('./ns1:value/ns2:enumName',
+                               IHCSoapClient.ihcns)
+            if enumName is not None:
+                changes[int(ihcid.text)] = enumName.text
         return changes
 
     def get_user_log(self, language='da'):
