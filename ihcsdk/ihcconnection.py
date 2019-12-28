@@ -2,6 +2,7 @@
 # pylint: disable=too-few-public-methods
 import xml.etree.ElementTree
 import requests
+from urllib.parse import urlparse
 
 
 class IHCConnection(object):
@@ -24,7 +25,7 @@ class IHCConnection(object):
     def soap_action(self, service, action, payloadbody):
         """Do a soap request."""
         payload = self.soapenvelope.format(body=payloadbody).encode('utf-8')
-        headers = {"Host": self.url,
+        headers = {"Host": urlparse(self.url).netloc,
                    "Content-Type": "text/xml; charset=UTF-8",
                    "Cache-Control": "no-cache",
                    "Content-Length": str(len(payload)),
