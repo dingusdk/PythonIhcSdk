@@ -43,6 +43,8 @@ class IHCConnection(object):
         self.cookies = response.cookies
         try:
             xdoc = xml.etree.ElementTree.fromstring(response.text)
+            if xdoc is None:
+              return False
         except xml.etree.ElementTree.ParseError as exp:
             self.last_exception = exp
             self.last_response = response

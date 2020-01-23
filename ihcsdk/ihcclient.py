@@ -169,7 +169,7 @@ class IHCSoapClient:
         xdoc = self.connection.soap_action('/ws/ResourceInteractionService',
                                            'getResourceValue',
                                            payload)
-        if not xdoc:
+        if xdoc == False:
             return False
         boolresult = xdoc.find(
             './SOAP-ENV:Body/ns1:getRuntimeValue2/ns1:value/ns2:value',
@@ -227,7 +227,7 @@ class IHCSoapClient:
                   """.format(timeout=wait)
         xdoc = self.connection.soap_action('/ws/ResourceInteractionService',
                                            'getResourceValue', payload)
-        if not xdoc:
+        if xdoc == False:
             return False
         result = xdoc.findall(
             './SOAP-ENV:Body/ns1:waitForResourceValueChanges2/ns1:arrayItem',
