@@ -35,7 +35,7 @@ class IHCSSLConnection(IHCConnection):
         try:
             xdoc = xml.etree.ElementTree.fromstring(response.text)
             if xdoc is None:
-              return False
+                return False
         except xml.etree.ElementTree.ParseError:
             return False
         return xdoc

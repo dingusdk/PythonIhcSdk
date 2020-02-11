@@ -21,6 +21,7 @@ class IHCConnection(object):
         self.verify = False
         self.last_exception = None
         self.last_response = None
+        self.session = requests.Session()
 
     def soap_action(self, service, action, payloadbody):
         """Do a soap request."""
@@ -32,8 +33,10 @@ class IHCConnection(object):
                    "SOAPAction": action}
         try:
             self.last_exception = None
-            response = requests.post(url=self.url + service, headers=headers,
-                                     data=payload, cookies=self.cookies)
+            response = self.session.post(url=self.url + service,
+                                         headers=headers,
+                                         data=payload,
+                                         cookies=self.cookies)
         except requests.exceptions.RequestException as exp:
             self.last_exception = exp
             return False
@@ -44,7 +47,7 @@ class IHCConnection(object):
         try:
             xdoc = xml.etree.ElementTree.fromstring(response.text)
             if xdoc is None:
-              return False
+                return False
         except xml.etree.ElementTree.ParseError as exp:
             self.last_exception = exp
             self.last_response = response
