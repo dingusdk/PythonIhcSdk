@@ -1,0 +1,9 @@
+/dist
+/build
+/ihcsdk.egg-info
+/build.bat
+/upload.bat
+/nppBackup
+/.venv
+__pycache__/
+.parameters

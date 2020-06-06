@@ -1,43 +1,45 @@
 """
 Test example showing how to use the ihcsdk to connect to the ihc controller
+To run the example create a file '.parameters' in this folder and add:
+ihcurl username password resourceid
+The resourceid is an ihc resource id of any boolean resource in you controller.
+The resource will be toggled when the test starts, and after this you can set it
+using '1' and '2'. 'q' to quit
 """
-from sys import argv
 from datetime import datetime
+
 from ihcsdk.ihccontroller import IHCController
-# from ihcsdk.ihccurlconnection import IHCCurlConnection
-
-t = datetime.now()
-
-
-def on_ihc_change(ihcid, value):
-    """Callback when ihc resource changes"""
-    print("Resource change " + str(ihcid) + "->" + str(value) +
-          " time: " + gettime())
-
-
-def gettime():
-    dif = datetime.now() - t
-    return str(dif)
 
 
 def main():
     """Do the test"""
-    global t
-    if len(argv) != 5:
-        print("Syntax: ihctest ihcurl username password resourceid")
+
+    starttime = datetime.now()
+
+    def on_ihc_change(ihcid, value):
+        """Callback when ihc resource changes"""
+        print("Resource change " + str(ihcid) + "->" + str(value) +
+              " time: " + gettime())
+
+    def gettime():
+        dif = datetime.now() - starttime
+        return str(dif)
+
+    cmdline = open(".parameters", "rt").read()
+    args = cmdline.split(' ')
+    if len(args) != 4:
+        print("The '.parameters' file should contain: ihcurl username password resourceid")
         exit()
-    url = argv[1]
-    resid = int(argv[4])
-    ihc = IHCController(url, argv[2], argv[3])
-# Un-comment the line below to use pycurl connection
-#    ihc.client.connection = IHCCurlConnection( url)
+    url = args[0]
+    resid = int(args[3])
+    ihc = IHCController(url, args[1], args[2])
     if not ihc.authenticate():
         print("Authenticate failed")
         exit()
 
     print("Authenticate succeeded\r\n")
 
-    # read project
+    # read the ihc project
     project = ihc.get_project()
     if project is False:
         print("Failed to read project")
@@ -63,11 +65,11 @@ def main():
     while True:
         i = input()
         if i == "1":
-            t = datetime.now()
+            starttime = datetime.now()
             ihc.set_runtime_value_bool(resid, False)
             continue
         if i == "2":
-            t = datetime.now()
+            starttime = datetime.now()
             ihc.set_runtime_value_bool(resid, True)
             continue
         if i == "q":

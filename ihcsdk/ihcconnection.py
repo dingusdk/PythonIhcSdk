@@ -6,7 +6,7 @@ from urllib.parse import urlparse
 
 
 class IHCConnection(object):
-    """description of class"""
+    """Implements a http connection to the controller"""
 
     soapenvelope = """<?xml version=\"1.0\" encoding=\"UTF-8\"?>
         <s:Envelope xmlns:s=\"http://schemas.xmlsoap.org/soap/envelope/\"
@@ -15,13 +15,16 @@ class IHCConnection(object):
         <s:Body>{body}</s:Body></s:Envelope>"""
 
     def __init__(self, url: str):
-        """Initialize the IIHCSoapClient with a url for the controller"""
+        """Initialize the IHCConnection with a url for the controller"""
         self.url = url
         self.cookies = ""
         self.verify = False
         self.last_exception = None
         self.last_response = None
         self.session = requests.Session()
+
+    def cert_verify(self):
+      return None
 
     def soap_action(self, service, action, payloadbody):
         """Do a soap request."""
@@ -36,6 +39,7 @@ class IHCConnection(object):
             response = self.session.post(url=self.url + service,
                                          headers=headers,
                                          data=payload,
+                                         verify=self.cert_verify(),
                                          cookies=self.cookies)
         except requests.exceptions.RequestException as exp:
             self.last_exception = exp

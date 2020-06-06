@@ -34,8 +34,7 @@ class IHCController:
             if not self.client.authenticate(self._username, self._password):
                 return False
             if self._ihcevents:
-                self.client.enable_runtime_notifications(
-                    self._ihcevents.keys())
+                self.client.enable_runtime_notifications(self._ihcevents.keys())
             return True
 
     def disconnect(self):
@@ -112,8 +111,7 @@ class IHCController:
                 with IHCController._mutex:
                     # Are there are any new ids to be added?
                     if self._newnotifyids:
-                        self.client.enable_runtime_notifications(
-                            self._newnotifyids)
+                        self.client.enable_runtime_notifications(self._newnotifyids)
                         self._newnotifyids = []
 
                 changes = self.client.wait_for_resource_value_changes()

@@ -5,6 +5,7 @@ Implements the connection to the ihc controller
 import zlib
 import base64
 from ihcsdk.ihcconnection import IHCConnection
+from ihcsdk.ihcsslconnection import IHCSSLConnection
 
 IHCSTATE_READY = "text.ctrl.state.ready"
 
@@ -22,7 +23,10 @@ class IHCSoapClient:
         self.url = url
         self.username = ""
         self.password = ""
-        self.connection = IHCConnection(url)
+        if url.startswith( "https://"):
+          self.connection = IHCSSLConnection(url)
+        else:
+          self.connection = IHCConnection(url)
 
     def authenticate(self, username: str, password: str) -> bool:
         """Do an Authentricate request and save the cookie returned to be used
