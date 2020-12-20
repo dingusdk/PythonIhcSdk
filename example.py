@@ -50,6 +50,9 @@ def main():
     if log:
         print("log: " + log)
 
+    info = ihc.client.get_system_info()
+    print( info)
+
     runtimevalue = ihc.get_runtime_value(resid)
     print("Runtime value: " + str(runtimevalue))
     ihc.set_runtime_value_bool(resid, not runtimevalue)

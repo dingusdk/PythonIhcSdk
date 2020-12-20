@@ -274,3 +274,42 @@ class IHCSoapClient:
                 return False
             return base64.b64decode(base64data).decode('UTF-8')
         return False
+
+    def clear_user_log(self):
+        """Clear the user log in the controller"""
+        xdoc = self.connection.soap_action('/ws/ConfigurationService',
+                                           'clearUserLog',"")
+        return                                           
+        
+    def get_system_info(self):
+        """Get controller system info"""
+        xdoc = self.connection.soap_action('/ws/ConfigurationService',
+                                           'getSystemInfo',"")
+        if xdoc is False:
+            return False
+        info = {
+            "uptime": IHCSoapClient.__extract_sysinfo(xdoc, 'uptime'),
+            "realtimeclock": IHCSoapClient.__extract_sysinfo(xdoc, 'realtimeclock'),
+            "serial_number": IHCSoapClient.__extract_sysinfo(xdoc, 'serialNumber'),
+            "production_date": IHCSoapClient.__extract_sysinfo(xdoc, 'productionDate'),
+            "brand": IHCSoapClient.__extract_sysinfo(xdoc, 'brand'),
+            "version": IHCSoapClient.__extract_sysinfo(xdoc, 'version'),
+            "hw_revision": IHCSoapClient.__extract_sysinfo(xdoc, 'hwRevision'),
+            "sw_date": IHCSoapClient.__extract_sysinfo(xdoc, 'swDate'),
+            "dataline_version": IHCSoapClient.__extract_sysinfo(xdoc, 'datalineVersion'),
+            "rf_module_software_version": IHCSoapClient.__extract_sysinfo(xdoc, 'rfModuleSoftwareVersion'),
+            "rf_module_serial_number": IHCSoapClient.__extract_sysinfo(xdoc, 'rfModuleSerialNumber'),
+            "application_is_without_viewer": IHCSoapClient.__extract_sysinfo(xdoc, 'applicationIsWithoutViewer'),
+            "sms_modem_software_version": IHCSoapClient.__extract_sysinfo(xdoc, 'smsModemSoftwareVersion'),
+            "led_dimmer_software_version": IHCSoapClient.__extract_sysinfo(xdoc, 'ledDimmerSoftwareVersion'),
+        }
+        return info
+
+    def __extract_sysinfo(xdoc,param) -> str:
+        """Internal function to extrach a parameter from system info"""
+        element = xdoc.find(
+            f'./SOAP-ENV:Body/ns1:getSystemInfo1/ns1:{param}',
+            IHCSoapClient.ihcns)
+        if element is None:
+            return None
+        return element.text
