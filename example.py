@@ -18,23 +18,26 @@ def main():
 
     def on_ihc_change(ihcid, value):
         """Callback when ihc resource changes"""
-        print("Resource change " + str(ihcid) + "->" + str(value) +
-              " time: " + gettime())
+        print(
+            "Resource change " + str(ihcid) + "->" + str(value) + " time: " + gettime()
+        )
 
     def gettime():
         dif = datetime.now() - starttime
         return str(dif)
 
     cmdline = open(".parameters", "rt").read()
-    args = cmdline.split(' ')
+    args = cmdline.split(" ")
     if len(args) != 4:
-        print("The '.parameters' file should contain: ihcurl username password resourceid")
+        print(
+            "The '.parameters' file should contain: ihcurl username password resourceid"
+        )
         exit()
     url = args[0]
     username = args[1]
     password = args[2]
     resid = int(args[3])
-    if not IHCController.is_ihc_controller( url):
+    if not IHCController.is_ihc_controller(url):
         print("The device in this url does not look like a IHC controller")
         exit()
     print("Url response like a IHC controller - now authenticating")
@@ -58,7 +61,7 @@ def main():
         print("log: " + log)
 
     info = ihc.client.get_system_info()
-    print( info)
+    print(info)
 
     runtimevalue = ihc.get_runtime_value(resid)
     print("Runtime value: " + str(runtimevalue))
@@ -66,9 +69,9 @@ def main():
     runtimevalue = ihc.get_runtime_value(resid)
     print("Runtime value: " + str(runtimevalue))
 
-    # ihc.client.enable_runtime_notifications( resid)
-    # changes = ihc.client.wait_for_resource_value_changes( 10)
-    # print( repr( changes))
+    ihc.client.enable_runtime_notification(resid)
+    changes = ihc.client.wait_for_resource_value_changes(10)
+    print(repr(changes))
 
     ihc.add_notify_event(resid, on_ihc_change, True)
 
@@ -85,6 +88,7 @@ def main():
         if i == "q":
             break
     ihc.disconnect()
-    ihc.client.connection.session.close()    
+    ihc.client.connection.session.close()
+
 
 main()

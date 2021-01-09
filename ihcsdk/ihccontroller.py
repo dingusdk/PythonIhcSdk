@@ -16,6 +16,7 @@ class IHCController:
     Implements the notification thread and
     will re-authenticate if needed.
     """
+
     _mutex = threading.Lock()
 
     def __init__(self, url: str, username: str, password: str):
@@ -30,18 +31,18 @@ class IHCController:
         self._newnotifyids = []
         self._project = None
 
-    def is_ihc_controller(url:str) -> bool: 
+    def is_ihc_controller(url: str) -> bool:
         """Will return True if the url respods like an IHC controller."""
         try:
             client = IHCSoapClient(url)
-            response = client.connection.session.get( 
-                            f"{url}/wsdl/controller.wsdl",
-                            verify=client.connection.cert_verify())
+            response = client.connection.session.get(
+                f"{url}/wsdl/controller.wsdl", verify=client.connection.cert_verify()
+            )
             if response.status_code != 200:
                 return False
-            if not response.headers['content-type'].startswith( "text/xml"):
+            if not response.headers["content-type"].startswith("text/xml"):
                 return False
-            if response.text.find( 'getIHCProject') < 0:
+            if response.text.find("getIHCProject") < 0:
                 return False
             return True
         except requests.exceptions.RequestException as exp:
@@ -62,11 +63,11 @@ class IHCController:
         """
         self._notifyrunning = False
 
-    def get_runtime_value(self, ihcid: int):        
-        """ Get runtime value with re-authenticate if needed"""            
+    def get_runtime_value(self, ihcid: int):
+        """ Get runtime value with re-authenticate if needed"""
         value = self.client.get_runtime_value(ihcid)
-        if value is not None: 
-            return value            
+        if value is not None:
+            return value
         self.re_authenticate()
         return self.client.get_runtime_value(ihcid)
 
@@ -96,15 +97,14 @@ class IHCController:
         with IHCController._mutex:
             if self._project is None:
                 if self.client.get_state() != IHCSTATE_READY:
-                    ready = self.client.wait_for_state_change(IHCSTATE_READY,
-                                                              10)
+                    ready = self.client.wait_for_state_change(IHCSTATE_READY, 10)
                     if ready != IHCSTATE_READY:
                         return None
                 self._project = self.client.get_project()
         return self._project
 
     def add_notify_event(self, resourceid: int, callback, delayed=False):
-        """ Add a notify callback for a specified resource id
+        """Add a notify callback for a specified resource id
         If delayed is set to true the enable request will be send from the
         notofication thread
         """
@@ -146,15 +146,14 @@ class IHCController:
             except Exception as exp:
                 self.re_authenticate(True)
 
-    def re_authenticate(self, notify: bool=False) -> bool:
+    def re_authenticate(self, notify: bool = False) -> bool:
         """Authenticate again after failure.
-           Keep trying with 10 sec interval. If called from the notify thread
-           we will not have a timeout, but will end if the notify thread has
-           been cancled.
-           Will return True if authentication was successful.
-          """
-        timeout = datetime.now() + \
-            timedelta(seconds=self.reauthenticatetimeout)
+        Keep trying with 10 sec interval. If called from the notify thread
+        we will not have a timeout, but will end if the notify thread has
+        been cancled.
+        Will return True if authentication was successful.
+        """
+        timeout = datetime.now() + timedelta(seconds=self.reauthenticatetimeout)
         while True:
             if self.authenticate():
                 return True

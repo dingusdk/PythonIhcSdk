@@ -24,23 +24,27 @@ class IHCConnection(object):
         self.session = requests.Session()
 
     def cert_verify(self):
-      return None
+        return None
 
     def soap_action(self, service, action, payloadbody):
         """Do a soap request."""
-        payload = self.soapenvelope.format(body=payloadbody).encode('utf-8')
-        headers = {"Host": urlparse(self.url).netloc,
-                   "Content-Type": "text/xml; charset=UTF-8",
-                   "Cache-Control": "no-cache",
-                   "Content-Length": str(len(payload)),
-                   "SOAPAction": action}
+        payload = self.soapenvelope.format(body=payloadbody).encode("utf-8")
+        headers = {
+            "Host": urlparse(self.url).netloc,
+            "Content-Type": "text/xml; charset=UTF-8",
+            "Cache-Control": "no-cache",
+            "Content-Length": str(len(payload)),
+            "SOAPAction": action,
+        }
         try:
             self.last_exception = None
-            response = self.session.post(url=self.url + service,
-                                         headers=headers,
-                                         data=payload,
-                                         verify=self.cert_verify(),
-                                         cookies=self.cookies)
+            response = self.session.post(
+                url=self.url + service,
+                headers=headers,
+                data=payload,
+                verify=self.cert_verify(),
+                cookies=self.cookies,
+            )
         except requests.exceptions.RequestException as exp:
             self.last_exception = exp
             return False

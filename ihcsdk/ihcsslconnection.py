@@ -17,15 +17,15 @@ class IHCSSLConnection(IHCConnection):
     def __init__(self, url: str):
         """Initialize the IHCSSLConnection with a url for the controller"""
         super(IHCSSLConnection, self).__init__(url)
-        self.cert_file = os.path.dirname( __file__) + "/certs/ihc3.crt"
-        self.session.mount('https://', CertAdapter( self.get_fingerprint_from_cert()))
+        self.cert_file = os.path.dirname(__file__) + "/certs/ihc3.crt"
+        self.session.mount("https://", CertAdapter(self.get_fingerprint_from_cert()))
 
-    def get_fingerprint_from_cert( self):
+    def get_fingerprint_from_cert(self):
         """Get the fingerprint from the certificate"""
-        pem = open( self.cert_file, "rb").read()
+        pem = open(self.cert_file, "rb").read()
         cert = load_pem_x509_certificate(pem, default_backend())
-        f = cert.fingerprint( hashes.SHA1())
-        return ''.join('{:02x}'.format(x) for x in f)
+        f = cert.fingerprint(hashes.SHA1())
+        return "".join("{:02x}".format(x) for x in f)
 
     def cert_verify(self):
         return self.cert_file
@@ -41,6 +41,7 @@ class CertAdapter(requests.adapters.HTTPAdapter):
 
     def init_poolmanager(self, connections, maxsize, block=False, **pool_kwargs):
         """Create a custom poolmanager"""
-        pool_kwargs['assert_fingerprint'] = self.fingerprint
-        return super(CertAdapter, self).init_poolmanager(connections, maxsize,
-                                                         block, **pool_kwargs)
+        pool_kwargs["assert_fingerprint"] = self.fingerprint
+        return super(CertAdapter, self).init_poolmanager(
+            connections, maxsize, block, **pool_kwargs
+        )
