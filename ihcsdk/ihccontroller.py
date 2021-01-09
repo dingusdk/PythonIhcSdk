@@ -62,10 +62,11 @@ class IHCController:
         """
         self._notifyrunning = False
 
-    def get_runtime_value(self, ihcid: int):
-        """ Get runtime value with re-authenticate if needed"""
-        if self.client.get_runtime_value(ihcid):
-            return True
+    def get_runtime_value(self, ihcid: int):        
+        """ Get runtime value with re-authenticate if needed"""            
+        value = self.client.get_runtime_value(ihcid)
+        if value is not None: 
+            return value            
         self.re_authenticate()
         return self.client.get_runtime_value(ihcid)
 
