@@ -31,8 +31,15 @@ def main():
         print("The '.parameters' file should contain: ihcurl username password resourceid")
         exit()
     url = args[0]
+    username = args[1]
+    password = args[2]
     resid = int(args[3])
-    ihc = IHCController(url, args[1], args[2])
+    if not IHCController.is_ihc_controller( url):
+        print("The device in this url does not look like a IHC controller")
+        exit()
+    print("Url response like a IHC controller - now authenticating")
+
+    ihc = IHCController(url, username, password)
     if not ihc.authenticate():
         print("Authenticate failed")
         exit()
@@ -78,6 +85,6 @@ def main():
         if i == "q":
             break
     ihc.disconnect()
-
+    ihc.client.connection.session.close()    
 
 main()

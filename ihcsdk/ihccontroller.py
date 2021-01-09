@@ -4,6 +4,8 @@ Notify thread to handle change notifications
 """
 # pylint: disable=invalid-name, bare-except, too-many-instance-attributes
 from datetime import datetime, timedelta
+import requests
+import socket
 import threading
 import time
 from ihcsdk.ihcclient import IHCSoapClient, IHCSTATE_READY
@@ -27,6 +29,23 @@ class IHCController:
         self._notifyrunning = False
         self._newnotifyids = []
         self._project = None
+
+    def is_ihc_controller(url:str) -> bool: 
+        """Will return True if the url respods like an IHC controller."""
+        try:
+            client = IHCSoapClient(url)
+            response = client.connection.session.get( 
+                            f"{url}/wsdl/controller.wsdl",
+                            verify=client.connection.cert_verify())
+            if response.status_code != 200:
+                return False
+            if not response.headers['content-type'].startswith( "text/xml"):
+                return False
+            if response.text.find( 'getIHCProject') < 0:
+                return False
+            return True
+        except requests.exceptions.RequestException as exp:
+            return False
 
     def authenticate(self) -> bool:
         """Authenticate and enable the registered notifications"""
