@@ -119,13 +119,13 @@ class IHCController:
                     if not self.client.enable_runtime_notification(resourceid):
                         return False
             if not self._notifyrunning:
+                self._notifyrunning = True
                 self._notifythread.start()
 
             return True
 
     def _notify_fn(self):
         """The notify thread function."""
-        self._notifyrunning = True
         while self._notifyrunning:
             try:
                 with IHCController._mutex:
