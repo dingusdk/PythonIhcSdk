@@ -182,6 +182,59 @@ class IHCSoapClient:
             return result == "true"
         return False
 
+    def set_runtime_value_timer(self, resourceid: int, timer: int):
+        """Set a timer runtime value in milliseconds"""
+        payload = """
+            <setResourceValue1 xmlns=\"utcs\"
+            xmlns:i=\"http://www.w3.org/2001/XMLSchema-instance\">
+            <value i:type=\"a:WSTimerValue\" xmlns:a=\"utcs.values\">
+            <a:milliseconds>{value}</a:milliseconds></value>
+            <typeString/>
+            <resourceID>{id}</resourceID>
+            <isValueRuntime>true</isValueRuntime>
+            </setResourceValue1>
+            </s:Body>
+            """.format(
+            id=resourceid, value=timer
+        )
+        xdoc = self.connection.soap_action(
+            "/ws/ResourceInteractionService", "setResourceValue", payload
+        )
+        if xdoc is not False:
+            result = xdoc.find(
+                "./SOAP-ENV:Body/ns1:setResourceValue2", IHCSoapClient.ihcns
+            ).text
+            return result == "true"
+        return False
+
+    def set_runtime_value_time(
+        self, resourceid: int, hours: int, minutes: int, seconds: int
+    ):
+        """Set a time runtime value in hours:minutes:seconds"""
+        payload = f"""
+            <setResourceValue1 xmlns=\"utcs\"
+            xmlns:i=\"http://www.w3.org/2001/XMLSchema-instance\">
+            <value i:type=\"a:WSTimeValue\" xmlns:a=\"utcs.values\">
+            <a:hours>{hours}</a:hours>
+            <a:minutes>{minutes}</a:minutes>
+            <a:seconds>{seconds}</a:seconds>
+            </value>
+            <typeString/>
+            <resourceID>{resourceid}</resourceID>
+            <isValueRuntime>true</isValueRuntime>
+            </setResourceValue1>
+            </s:Body>
+            """
+        xdoc = self.connection.soap_action(
+            "/ws/ResourceInteractionService", "setResourceValue", payload
+        )
+        if xdoc is not False:
+            result = xdoc.find(
+                "./SOAP-ENV:Body/ns1:setResourceValue2", IHCSoapClient.ihcns
+            ).text
+            return result == "true"
+        return False
+
     def get_time(resource_value):
 
         hours = int(resource_value.find("./ns2:hours", IHCSoapClient.ihcns).text)

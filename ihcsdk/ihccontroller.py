@@ -108,6 +108,22 @@ class IHCController:
         self.re_authenticate()
         return self.client.set_runtime_value_float(ihcid, value)
 
+    def set_runtime_value_timer(self, ihcid: int, value: int) -> bool:
+        """ Set timer runtime value with re-authenticate if needed"""
+        if self.client.set_runtime_value_timer(ihcid, value):
+            return True
+        self.re_authenticate()
+        return self.client.set_runtime_value_timer(ihcid, value)
+
+    def set_runtime_value_time(
+        self, ihcid: int, hours: int, minutes: int, seconds: int
+    ) -> bool:
+        """ Set time runtime value with re-authenticate if needed"""
+        if self.client.set_runtime_value_time(ihcid, hours, minutes):
+            return True
+        self.re_authenticate()
+        return self.client.set_runtime_value_time(ihcid, hours, minutes, seconds)
+
     def get_project(self) -> str:
         """ Get the ihc project and make sure controller is ready before"""
         with IHCController._mutex:
