@@ -71,6 +71,22 @@ class IHCController:
         self.re_authenticate()
         return self.client.get_runtime_value(ihcid)
 
+    def get_runtime_values(self, ihcids):
+        """ Get runtime value with re-authenticate if needed"""
+        value = self.client.get_runtime_values(ihcids)
+        if value is not None:
+            return value
+        self.re_authenticate()
+        return self.client.get_runtime_values(ihcids)
+
+    def cycle_bool_value(self, resourceid: int):
+        """Turn a booelan resource On and back Off"""
+        value = self.client.cycle_bool_value(resourceid)
+        if value is not None:
+            return value
+        self.re_authenticate()
+        return self.client.cycle_bool_value(resourceid)
+
     def set_runtime_value_bool(self, ihcid: int, value: bool) -> bool:
         """ Set bool runtime value with re-authenticate if needed"""
         if self.client.set_runtime_value_bool(ihcid, value):

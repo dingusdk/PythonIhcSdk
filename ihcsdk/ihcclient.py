@@ -233,6 +233,72 @@ class IHCSoapClient:
         )
         return IHCSoapClient.__get_value(value)
 
+    def get_runtime_values(self, resourceids):
+        """Get runtime values of specified resource ids           
+           Return None if resource cannot be found or on error
+        """
+
+        idsarr = ""
+        for ihcid in resourceids:
+          idsarr+='<arrayItem>{id}</arrayItem>'.format(id=ihcid)
+
+        payload = (
+            '<getRuntimeValues1 xmlns="utcs">'
+            + idsarr +
+            '</getRuntimeValues1>')                     
+
+        xdoc = self.connection.soap_action('/ws/ResourceInteractionService',
+                                           'getResourceValues',
+                                           payload)
+        if xdoc is False:
+            return False
+        result = xdoc.findall(
+            './SOAP-ENV:Body/ns1:getRuntimeValues2/ns1:arrayItem',
+            IHCSoapClient.ihcns)
+
+        changes = {}
+        for item in result:
+            ihcid = item.find('ns1:resourceID', IHCSoapClient.ihcns)
+            if ihcid is None:
+                continue
+
+            resourceValue = item.find('./ns1:value', IHCSoapClient.ihcns)
+
+            itemValue = IHCSoapClient.__get_value(resourceValue)
+            if itemValue is not None:
+                changes[int(ihcid.text)] = itemValue               
+                    
+        return changes
+
+    def cycle_bool_value(self, resourceid: int):
+        """Turn a booelan resource On and back Off        
+        Return None if resource cannot be found or on error
+        """
+        setBool = (
+            '<arrayItem>'
+              '<value xsi:type="ns1:WSBooleanValue">'
+                '<ns1:value>{value}</ns1:value>'
+              '</value>'
+              '<typeString></typeString>'
+              '<resourceID>{id}</resourceID>'
+              '<isValueRuntime>true</isValueRuntime>'
+            '</arrayItem>')        
+
+        payload = (
+            '<setResourceValues1 xmlns="utcs" xmlns:ns1="utcs.values">'
+            + setBool.format(value='true', id=resourceid) 
+            + setBool.format(value='false', id=resourceid) +
+            '</setResourceValues1>')
+              
+        xdoc = self.connection.soap_action(
+            "/ws/ResourceInteractionService", "SOAPAction: setResourceValues", payload
+        )
+
+        if xdoc is False:
+            return None
+
+        return True   
+    
     def enable_runtime_notification(self, resourceid: int):
         """Enable notification for specified resource id"""
         return self.enable_runtime_notifications([resourceid])
