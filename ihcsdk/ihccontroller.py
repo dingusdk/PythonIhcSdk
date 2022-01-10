@@ -26,6 +26,7 @@ class IHCController:
         self._username = username
         self._password = password
         self._ihcevents = {}
+        self._ihcvalues = {}
         self._notifythread = threading.Thread(target=self._notify_fn)
         self._notifyrunning = False
         self._newnotifyids = []
@@ -174,7 +175,9 @@ class IHCController:
                     value = changes[ihcid]
                     if ihcid in self._ihcevents:
                         for callback in self._ihcevents[ihcid]:
-                            callback(ihcid, value)
+                            if ihcid in self._ihcvalues and value != self._ihcvalues[ihcid]:
+                                callback(ihcid, value)
+                            self._ihcvalues[ihcid] = value
             except Exception as exp:
                 self.re_authenticate(True)
 
