@@ -65,7 +65,7 @@ class IHCController:
         self._notifyrunning = False
 
     def get_runtime_value(self, ihcid: int):
-        """ Get runtime value with re-authenticate if needed"""
+        """Get runtime value with re-authenticate if needed"""
         value = self.client.get_runtime_value(ihcid)
         if value is not None:
             return value
@@ -73,7 +73,7 @@ class IHCController:
         return self.client.get_runtime_value(ihcid)
 
     def get_runtime_values(self, ihcids):
-        """ Get runtime value with re-authenticate if needed"""
+        """Get runtime value with re-authenticate if needed"""
         value = self.client.get_runtime_values(ihcids)
         if value is not None:
             return value
@@ -89,28 +89,28 @@ class IHCController:
         return self.client.cycle_bool_value(resourceid)
 
     def set_runtime_value_bool(self, ihcid: int, value: bool) -> bool:
-        """ Set bool runtime value with re-authenticate if needed"""
+        """Set bool runtime value with re-authenticate if needed"""
         if self.client.set_runtime_value_bool(ihcid, value):
             return True
         self.re_authenticate()
         return self.client.set_runtime_value_bool(ihcid, value)
 
     def set_runtime_value_int(self, ihcid: int, value: int) -> bool:
-        """ Set integer runtime value with re-authenticate if needed"""
+        """Set integer runtime value with re-authenticate if needed"""
         if self.client.set_runtime_value_int(ihcid, value):
             return True
         self.re_authenticate()
         return self.client.set_runtime_value_int(ihcid, value)
 
     def set_runtime_value_float(self, ihcid: int, value: float) -> bool:
-        """ Set float runtime value with re-authenticate if needed"""
+        """Set float runtime value with re-authenticate if needed"""
         if self.client.set_runtime_value_float(ihcid, value):
             return True
         self.re_authenticate()
         return self.client.set_runtime_value_float(ihcid, value)
 
     def set_runtime_value_timer(self, ihcid: int, value: int) -> bool:
-        """ Set timer runtime value with re-authenticate if needed"""
+        """Set timer runtime value with re-authenticate if needed"""
         if self.client.set_runtime_value_timer(ihcid, value):
             return True
         self.re_authenticate()
@@ -119,14 +119,14 @@ class IHCController:
     def set_runtime_value_time(
         self, ihcid: int, hours: int, minutes: int, seconds: int
     ) -> bool:
-        """ Set time runtime value with re-authenticate if needed"""
+        """Set time runtime value with re-authenticate if needed"""
         if self.client.set_runtime_value_time(ihcid, hours, minutes):
             return True
         self.re_authenticate()
         return self.client.set_runtime_value_time(ihcid, hours, minutes, seconds)
 
     def get_project(self) -> str:
-        """ Get the ihc project and make sure controller is ready before"""
+        """Get the ihc project and make sure controller is ready before"""
         with IHCController._mutex:
             if self._project is None:
                 if self.client.get_state() != IHCSTATE_READY:
@@ -175,7 +175,10 @@ class IHCController:
                     value = changes[ihcid]
                     if ihcid in self._ihcevents:
                         for callback in self._ihcevents[ihcid]:
-                            if ihcid in self._ihcvalues and value != self._ihcvalues[ihcid]:
+                            if (
+                                ihcid not in self._ihcvalues
+                                or value != self._ihcvalues[ihcid]
+                            ):
                                 callback(ihcid, value)
                             self._ihcvalues[ihcid] = value
             except Exception as exp:
