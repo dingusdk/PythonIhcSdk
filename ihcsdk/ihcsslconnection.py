@@ -7,6 +7,7 @@ from cryptography.x509 import load_pem_x509_certificate
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes
 from requests.adapters import HTTPAdapter
+from requests.packages.urllib3.util.ssl_ import create_urllib3_context
 
 from ihcsdk.ihcconnection import IHCConnection
 
@@ -41,6 +42,9 @@ class CertAdapter(requests.adapters.HTTPAdapter):
 
     def init_poolmanager(self, connections, maxsize, block=False, **pool_kwargs):
         """Create a custom poolmanager"""
+        CIPHERS = ('ALL:@SECLEVEL=1')
+        context = create_urllib3_context(ciphers=CIPHERS)
+        pool_kwargs['ssl_context'] = context
         pool_kwargs["assert_fingerprint"] = self.fingerprint
         return super(CertAdapter, self).init_poolmanager(
             connections, maxsize, block, **pool_kwargs
