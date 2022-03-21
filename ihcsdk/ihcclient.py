@@ -4,6 +4,7 @@ Implements the connection to the ihc controller
 # pylint: disable=bare-except
 import base64
 import datetime
+import io
 import zlib
 from ihcsdk.ihcconnection import IHCConnection
 from ihcsdk.ihcsslconnection import IHCSSLConnection
@@ -89,8 +90,8 @@ class IHCSoapClient:
             ).text
         return False
 
-    def get_project(self) -> str:
-        """Get the ihc project"""
+    def get_project_simple(self) -> str:
+        """Get the ihc project in single SOAP action. Deprecated."""
         xdoc = self.connection.soap_action("/ws/ControllerService", "getIHCProject", "")
         if xdoc is not False:
             base64data = xdoc.find(
@@ -102,6 +103,18 @@ class IHCSoapClient:
             return zlib.decompress(compresseddata, 16 + zlib.MAX_WBITS).decode(
                 "ISO-8859-1"
             )
+        return False
+
+    def get_project(self) -> str:
+        """Get the ihc project per segments."""
+        info = self.get_project_info()
+        if info:
+            projectMajor = info.get("projectMajorRevision", 0)
+            projectMinor = info.get("projectMinorRevision", 0)
+            buffer = io.BytesIO()
+            for s in range(self.get_project_number_of_segments()):
+                buffer.write(self.get_project_segment(s, projectMajor, projectMinor))
+            return zlib.decompress(buffer.getvalue(), 16 + zlib.MAX_WBITS).decode("ISO-8859-1")
         return False
 
     def get_project_info(self) -> dict:
@@ -301,6 +314,8 @@ class IHCSoapClient:
 
     def __get_value(resource_value):
         """Get a runtime value from the xml base on the type in the xml"""
+        if resource_value == None:
+            return None
         valuetype = resource_value.attrib[
             "{http://www.w3.org/2001/XMLSchema-instance}type"
         ].split(":")[1]
