@@ -104,6 +104,53 @@ class IHCSoapClient:
             )
         return False
 
+    def get_project_info(self) -> dict:
+        """Returns dictionary of project info items."""
+        xdoc = self.connection.soap_action("/ws/ControllerService", "getProjectInfo", "")
+        if xdoc is not False:
+            info = {}
+            elem = xdoc.find("./SOAP-ENV:Body/ns1:getProjectInfo1", IHCSoapClient.ihcns)
+            if elem:
+              for e in list(elem):
+                name = e.tag.split("}")[-1]
+                info[name] = e.text
+            return info
+        return False
+
+    def get_project_number_of_segments(self) -> int:
+        """Returns the number of segments needed to fetch the current ihc-project."""
+        xdoc = self.connection.soap_action("/ws/ControllerService", "getIHCProjectNumberOfSegments", "")
+        if xdoc is not False:
+            return int(xdoc.find(
+                "./SOAP-ENV:Body/ns1:getIHCProjectNumberOfSegments1", IHCSoapClient.ihcns
+            ).text)
+        return False
+
+    def get_project_segment(self, segment:int, projectMajor:int, projectMinor:int):
+        """Returns a segment of the ihc-project with the given number.
+           Returns null if the segment number increases above the number of segments available.
+           The segments are offset from 0.
+           The project-versions given as parameters are used to indentify the project that should be fetched.
+           That is, to make sure that you suddenly don't get segments belonging to another project.
+        """
+        payload = """
+            <getIHCProjectSegment1 xmlns="utcs">{segment}</getIHCProjectSegment1>
+            <getIHCProjectSegment2 xmlns="utcs">{major}</getIHCProjectSegment2>
+            <getIHCProjectSegment3 xmlns="utcs">{minor}</getIHCProjectSegment3>
+            """.format(segment=segment, major=projectMajor, minor=projectMinor
+        )
+        xdoc = self.connection.soap_action("/ws/ControllerService", "getIHCProjectSegment", payload)
+        if xdoc is not False:
+            base64data = xdoc.find(
+                "./SOAP-ENV:Body/ns1:getIHCProjectSegment4/ns1:data", IHCSoapClient.ihcns
+            ).text
+            if not base64:
+                return False
+            compresseddata = base64.b64decode(base64data)
+            return compresseddata
+        return False
+
+
     def set_runtime_value_bool(self, resourceid: int, value: bool) -> bool:
         """Set a boolean runtime value"""
         if value:
