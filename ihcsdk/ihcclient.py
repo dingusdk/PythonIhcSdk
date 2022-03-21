@@ -113,7 +113,7 @@ class IHCSoapClient:
             if elem:
               for e in list(elem):
                 name = e.tag.split("}")[-1]
-                info[name] = e.text
+                info[name] = IHCSoapClient.__get_value(e)
             return info
         return False
 
@@ -290,11 +290,21 @@ class IHCSoapClient:
 
         return datetime.time(hours, minutes, seconds)
 
+    def get_datetime(resource_value):
+        year    = int(resource_value.find("./ns1:year", IHCSoapClient.ihcns).text)
+        month   = int(resource_value.find("./ns1:monthWithJanuaryAsOne", IHCSoapClient.ihcns).text)
+        day     = int(resource_value.find("./ns1:day", IHCSoapClient.ihcns).text)
+        hours   = int(resource_value.find("./ns1:hours", IHCSoapClient.ihcns).text)
+        minutes = int(resource_value.find("./ns1:minutes", IHCSoapClient.ihcns).text)
+        seconds = int(resource_value.find("./ns1:seconds", IHCSoapClient.ihcns).text)
+        return datetime.datetime(year, month, day, hours, minutes, seconds)
+
     def __get_value(resource_value):
         """Get a runtime value from the xml base on the type in the xml"""
         valuetype = resource_value.attrib[
             "{http://www.w3.org/2001/XMLSchema-instance}type"
         ].split(":")[1]
+        default_fn = lambda v: v.text
         result = {
             "WSBooleanValue": lambda v: (
                 v.find("./ns2:value", IHCSoapClient.ihcns).text == "true"
@@ -310,7 +320,9 @@ class IHCSoapClient:
                 v.find("./ns2:milliseconds", IHCSoapClient.ihcns).text
             ),
             "WSTimeValue": lambda v: IHCSoapClient.get_time(v),
-        }[valuetype](resource_value)
+            "WSDate": lambda v: IHCSoapClient.get_datetime(v),
+            "int": lambda v: int(v.text),
+        }.get(valuetype, default_fn)(resource_value)
 
         return result
 
