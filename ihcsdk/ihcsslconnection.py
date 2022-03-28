@@ -42,7 +42,9 @@ class CertAdapter(requests.adapters.HTTPAdapter):
 
     def init_poolmanager(self, connections, maxsize, block=False, **pool_kwargs):
         """Create a custom poolmanager"""
-        CIPHERS = ('ALL:@SECLEVEL=1')
+        # CIPHERS = ('ALL:@SECLEVEL=1')
+        # CIPHERS = ('HIGH:!DH:!aNULL')
+        CIPHERS = ('DEFAULT:!DH')
         context = create_urllib3_context(ciphers=CIPHERS)
         pool_kwargs['ssl_context'] = context
         pool_kwargs["assert_fingerprint"] = self.fingerprint
