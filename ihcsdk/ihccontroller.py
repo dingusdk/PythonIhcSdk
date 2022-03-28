@@ -6,6 +6,7 @@ Notify thread to handle change notifications
 from datetime import datetime, timedelta
 import requests
 import socket
+import sys
 import threading
 import time
 from ihcsdk.ihcclient import IHCSoapClient, IHCSTATE_READY
@@ -47,6 +48,7 @@ class IHCController:
                 return False
             return True
         except requests.exceptions.RequestException as exp:
+            print("is_ihc_controller: %s" % exp, file=sys.stderr)
             return False
 
     def authenticate(self) -> bool:
