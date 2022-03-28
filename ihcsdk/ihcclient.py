@@ -90,7 +90,7 @@ class IHCSoapClient:
             ).text
         return False
 
-    def get_project_simple(self) -> str:
+    def get_project(self) -> str:
         """Get the ihc project in single SOAP action. Deprecated."""
         xdoc = self.connection.soap_action("/ws/ControllerService", "getIHCProject", "")
         if xdoc is not False:
@@ -105,9 +105,12 @@ class IHCSoapClient:
             )
         return False
 
-    def get_project(self) -> str:
-        """Get the ihc project per segments."""
-        info = self.get_project_info()
+    def get_project_in_segments(self, info=None) -> str:
+        """Get the ihc project per segments.
+           Param: info .. reuse existing project info. If not provided, the get_project_info() is called internally.
+        """
+        if info == None:
+            info = self.get_project_info()
         if info:
             projectMajor = info.get("projectMajorRevision", 0)
             projectMinor = info.get("projectMinorRevision", 0)
