@@ -4,6 +4,7 @@ Implements the connection to the ihc controller
 # pylint: disable=bare-except
 import base64
 import datetime
+import io
 import zlib
 from ihcsdk.ihcconnection import IHCConnection
 from ihcsdk.ihcsslconnection import IHCSSLConnection
@@ -90,7 +91,7 @@ class IHCSoapClient:
         return False
 
     def get_project(self) -> str:
-        """Get the ihc project"""
+        """Get the ihc project in single SOAP action. Deprecated."""
         xdoc = self.connection.soap_action("/ws/ControllerService", "getIHCProject", "")
         if xdoc is not False:
             base64data = xdoc.find(
@@ -103,6 +104,68 @@ class IHCSoapClient:
                 "ISO-8859-1"
             )
         return False
+
+    def get_project_in_segments(self, info=None) -> str:
+        """Get the ihc project per segments.
+           Param: info .. reuse existing project info. If not provided, the get_project_info() is called internally.
+        """
+        if info == None:
+            info = self.get_project_info()
+        if info:
+            projectMajor = info.get("projectMajorRevision", 0)
+            projectMinor = info.get("projectMinorRevision", 0)
+            buffer = io.BytesIO()
+            for s in range(self.get_project_number_of_segments()):
+                buffer.write(self.get_project_segment(s, projectMajor, projectMinor))
+            return zlib.decompress(buffer.getvalue(), 16 + zlib.MAX_WBITS).decode("ISO-8859-1")
+        return False
+
+    def get_project_info(self) -> dict:
+        """Returns dictionary of project info items."""
+        xdoc = self.connection.soap_action("/ws/ControllerService", "getProjectInfo", "")
+        if xdoc is not False:
+            info = {}
+            elem = xdoc.find("./SOAP-ENV:Body/ns1:getProjectInfo1", IHCSoapClient.ihcns)
+            if elem:
+              for e in list(elem):
+                name = e.tag.split("}")[-1]
+                info[name] = IHCSoapClient.__get_value(e)
+            return info
+        return False
+
+    def get_project_number_of_segments(self) -> int:
+        """Returns the number of segments needed to fetch the current ihc-project."""
+        xdoc = self.connection.soap_action("/ws/ControllerService", "getIHCProjectNumberOfSegments", "")
+        if xdoc is not False:
+            return int(xdoc.find(
+                "./SOAP-ENV:Body/ns1:getIHCProjectNumberOfSegments1", IHCSoapClient.ihcns
+            ).text)
+        return False
+
+    def get_project_segment(self, segment:int, projectMajor:int, projectMinor:int):
+        """Returns a segment of the ihc-project with the given number.
+           Returns null if the segment number increases above the number of segments available.
+           The segments are offset from 0.
+           The project-versions given as parameters are used to indentify the project that should be fetched.
+           That is, to make sure that you suddenly don't get segments belonging to another project.
+        """
+        payload = """
+            <getIHCProjectSegment1 xmlns="utcs">{segment}</getIHCProjectSegment1>
+            <getIHCProjectSegment2 xmlns="utcs">{major}</getIHCProjectSegment2>
+            <getIHCProjectSegment3 xmlns="utcs">{minor}</getIHCProjectSegment3>
+            """.format(segment=segment, major=projectMajor, minor=projectMinor
+        )
+        xdoc = self.connection.soap_action("/ws/ControllerService", "getIHCProjectSegment", payload)
+        if xdoc is not False:
+            base64data = xdoc.find(
+                "./SOAP-ENV:Body/ns1:getIHCProjectSegment4/ns1:data", IHCSoapClient.ihcns
+            ).text
+            if not base64:
+                return False
+            compresseddata = base64.b64decode(base64data)
+            return compresseddata
+        return False
+
 
     def set_runtime_value_bool(self, resourceid: int, value: bool) -> bool:
         """Set a boolean runtime value"""
@@ -243,11 +306,23 @@ class IHCSoapClient:
 
         return datetime.time(hours, minutes, seconds)
 
+    def get_datetime(resource_value):
+        year    = int(resource_value.find("./ns1:year", IHCSoapClient.ihcns).text)
+        month   = int(resource_value.find("./ns1:monthWithJanuaryAsOne", IHCSoapClient.ihcns).text)
+        day     = int(resource_value.find("./ns1:day", IHCSoapClient.ihcns).text)
+        hours   = int(resource_value.find("./ns1:hours", IHCSoapClient.ihcns).text)
+        minutes = int(resource_value.find("./ns1:minutes", IHCSoapClient.ihcns).text)
+        seconds = int(resource_value.find("./ns1:seconds", IHCSoapClient.ihcns).text)
+        return datetime.datetime(year, month, day, hours, minutes, seconds)
+
     def __get_value(resource_value):
         """Get a runtime value from the xml base on the type in the xml"""
+        if resource_value == None:
+            return None
         valuetype = resource_value.attrib[
             "{http://www.w3.org/2001/XMLSchema-instance}type"
         ].split(":")[1]
+        default_fn = lambda v: v.text
         result = {
             "WSBooleanValue": lambda v: (
                 v.find("./ns2:value", IHCSoapClient.ihcns).text == "true"
@@ -263,7 +338,9 @@ class IHCSoapClient:
                 v.find("./ns2:milliseconds", IHCSoapClient.ihcns).text
             ),
             "WSTimeValue": lambda v: IHCSoapClient.get_time(v),
-        }[valuetype](resource_value)
+            "WSDate": lambda v: IHCSoapClient.get_datetime(v),
+            "int": lambda v: int(v.text),
+        }.get(valuetype, default_fn)(resource_value)
 
         return result
 
