@@ -28,7 +28,7 @@ def main():
 
     cmdline = open(".parameters", "rt").read()
     args = cmdline.split(" ")
-    if len(args) != 4:
+    if len(args) < 4:
         print(
             "The '.parameters' file should contain: ihcurl username password resourceid"
         )

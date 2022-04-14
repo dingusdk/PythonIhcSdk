@@ -135,7 +135,7 @@ class IHCController:
                     ready = self.client.wait_for_state_change(IHCSTATE_READY, 10)
                     if ready != IHCSTATE_READY:
                         return None
-                self._project = self.client.get_project()
+                self._project = self.client.get_project_in_segments()
         return self._project
 
     def add_notify_event(self, resourceid: int, callback, delayed=False):
