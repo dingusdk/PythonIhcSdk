@@ -334,6 +334,8 @@ class IHCSoapClient:
 
     def get_date(resource_value):
         year = int(resource_value.find("./ns2:year", IHCSoapClient.ihcns).text)
+        if year == 0:
+            year = datetime.datetime.today().year
         month = int(resource_value.find("./ns2:month", IHCSoapClient.ihcns).text)
         day = int(resource_value.find("./ns2:day", IHCSoapClient.ihcns).text)
         return datetime.datetime(year, month, day)
