@@ -332,6 +332,12 @@ class IHCSoapClient:
         seconds = int(resource_value.find("./ns1:seconds", IHCSoapClient.ihcns).text)
         return datetime.datetime(year, month, day, hours, minutes, seconds)
 
+    def get_date(resource_value):
+        year = int(resource_value.find("./ns2:year", IHCSoapClient.ihcns).text)
+        month = int(resource_value.find("./ns2:month", IHCSoapClient.ihcns).text)
+        day = int(resource_value.find("./ns2:day", IHCSoapClient.ihcns).text)
+        return datetime.datetime(year, month, day)
+
     def __get_value(resource_value):
         """Get a runtime value from the xml base on the type in the xml"""
         if resource_value == None:
@@ -356,6 +362,7 @@ class IHCSoapClient:
             ),
             "WSTimeValue": lambda v: IHCSoapClient.get_time(v),
             "WSDate": lambda v: IHCSoapClient.get_datetime(v),
+            "WSDateValue": lambda v: IHCSoapClient.get_date(v),
             "int": lambda v: int(v.text),
         }.get(valuetype, default_fn)(resource_value)
 
