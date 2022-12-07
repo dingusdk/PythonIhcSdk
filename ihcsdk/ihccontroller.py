@@ -169,22 +169,27 @@ class IHCController:
                         self.client.enable_runtime_notifications(self._newnotifyids)
                         self._newnotifyids = []
 
-                changes = self.client.wait_for_resource_value_changes()
-                if changes is False:
+                change_list = self.client.wait_for_resource_value_change_list()
+                if change_list is False:
                     self.re_authenticate(True)
                     continue
-                for ihcid in changes:
-                    value = changes[ihcid]
-                    if ihcid in self._ihcevents:
-                        for callback in self._ihcevents[ihcid]:
-                            if (
-                                ihcid not in self._ihcvalues
-                                or value != self._ihcvalues[ihcid]
-                            ):
-                                callback(ihcid, value)
-                            self._ihcvalues[ihcid] = value
             except Exception as exp:
                 self.re_authenticate(True)
+
+            try:
+                for ihcid in change_list:
+                    if ihcid in self._ihcevents:
+                        changes = change_list[ihcid]
+                        for value in changes:
+                            # Only callback changed values
+                            if ihcid not in self._ihcvalues or value != self._ihcvalues[ihcid]:
+                                for callback in self._ihcevents[ihcid]:
+                                    callback(ihcid, value)
+
+                            # Suppress repeated states by storing last received value
+                            self._ihcvalues[ihcid] = value
+            except Exception as exp:
+                print (f"Change callback exception: {exp}")
 
     def re_authenticate(self, notify: bool = False) -> bool:
         """Authenticate again after failure.

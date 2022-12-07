@@ -5,6 +5,7 @@ Implements the connection to the ihc controller
 import base64
 import datetime
 import io
+from xml.etree import ElementTree
 import zlib
 from ihcsdk.ihcconnection import IHCConnection
 from ihcsdk.ihcsslconnection import IHCSSLConnection
@@ -469,10 +470,19 @@ class IHCSoapClient:
 
     def wait_for_resource_value_changes(self, wait: int = 10):
         """
-        Long polling for changes and return a dictionary with resource:value
-        for changes
+        Long polling for changes and return a resource id dictionary with the last change since last poll.
         """
-        changes = {}
+        change_list = self.wait_for_resource_value_change_list(wait)
+        last_changes = {}
+        for (id, changes) in change_list:
+            last_changes[id] = changes[-1]
+        return last_changes
+
+    def wait_for_resource_value_change_list(self, wait: int = 10):
+        """
+        Long polling for changes and return a resource id dictionary with a list of all changes since last poll.
+        """
+        change_list = {}
         payload = """<waitForResourceValueChanges1
                      xmlns=\"utcs\">{timeout}</waitForResourceValueChanges1>
                   """.format(
@@ -483,20 +493,38 @@ class IHCSoapClient:
         )
         if xdoc is False:
             return False
+
+        # Uncomment to print entire changes element for reverse engineering
+        #        element_string = ElementTree.tostring(xdoc, encoding="unicode")    
+        #        print (element_string)            
         result = xdoc.findall(
             "./SOAP-ENV:Body/ns1:waitForResourceValueChanges2/ns1:arrayItem",
             IHCSoapClient.ihcns,
         )
+
+        # IHC may bundle several change events for the same resource following 
+        # a single resourceID node. This is common for short state changes like button presses.
+        # It is assumed that the following value nodes are in the sequence order
+        # they occurred. Empirical testing hasn't shown otherwise.
+        current_ihcid = None
         for item in result:
             ihcid = item.find("ns1:resourceID", IHCSoapClient.ihcns)
-            if ihcid is None:
+            if ihcid is not None:
+                current_ihcid = ihcid
+
+            if current_ihcid is None:
                 continue
 
             resource_value = item.find("./ns1:value", IHCSoapClient.ihcns)
             value = IHCSoapClient.__get_value(resource_value)
+
             if value is not None:
-                changes[int(ihcid.text)] = value
-        return changes
+                id = int(current_ihcid.text)
+                if not id in change_list:
+                    change_list[id] = [value]
+                else:
+                    change_list[id].append(value)
+        return change_list
 
     def get_user_log(self, language="da"):
         """Get the controller state"""
