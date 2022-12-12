@@ -169,12 +169,11 @@ class IHCController:
                         self.client.enable_runtime_notifications(self._newnotifyids)
                         self._newnotifyids = []
 
-                changes = self.client.wait_for_resource_value_changes()
+                changes = self.client.wait_for_resource_value_change_list()
                 if changes is False:
                     self.re_authenticate(True)
                     continue
-                for ihcid in changes:
-                    value = changes[ihcid]
+                for (ihcid, value) in changes:
                     if ihcid in self._ihcevents:
                         for callback in self._ihcevents[ihcid]:
                             if (

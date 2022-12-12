@@ -470,9 +470,22 @@ class IHCSoapClient:
     def wait_for_resource_value_changes(self, wait: int = 10):
         """
         Long polling for changes and return a dictionary with resource:value
-        for changes
+        for changes (Only last change)
         """
-        changes = {}
+        change_list = self.wait_for_resource_value_change_list(wait)
+        if change_list is False:
+            return False
+        last_changes = {}
+        for (id, value) in change_list:
+            last_changes[id] = value
+        return last_changes
+
+    def wait_for_resource_value_change_list(self, wait: int = 10):
+        """
+        Long polling for changes and return a resource id dictionary with a list of all changes since last poll.
+        Return a list of tuples with the id,value
+        """
+        changes = []
         payload = """<waitForResourceValueChanges1
                      xmlns=\"utcs\">{timeout}</waitForResourceValueChanges1>
                   """.format(
@@ -495,7 +508,7 @@ class IHCSoapClient:
             resource_value = item.find("./ns1:value", IHCSoapClient.ihcns)
             value = IHCSoapClient.__get_value(resource_value)
             if value is not None:
-                changes[int(ihcid.text)] = value
+                changes.append((int(ihcid.text), value))
         return changes
 
     def get_user_log(self, language="da"):
