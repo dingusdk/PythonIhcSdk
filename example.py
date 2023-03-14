@@ -6,13 +6,21 @@ The resourceid is an ihc resource id of any boolean resource in you controller.
 The resource will be toggled when the test starts, and after this you can set it
 using '1' and '2'. 'q' to quit
 """
+import logging
+import sys
+
 from datetime import datetime
 
 from ihcsdk.ihccontroller import IHCController
 
+_LOGGER = logging.getLogger(__name__)
 
 def main():
     """Do the test"""
+
+    logging.basicConfig(stream=sys.stdout, level=logging.INFO)
+    # set log level below to debug for further troubleshooting
+    logging.getLogger("ihcsdk").setLevel( logging.INFO)
 
     starttime = datetime.now()
 

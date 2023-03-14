@@ -4,13 +4,14 @@ Notify thread to handle change notifications
 """
 # pylint: disable=invalid-name, bare-except, too-many-instance-attributes
 from datetime import datetime, timedelta
+import logging
 import requests
-import socket
 import sys
 import threading
 import time
 from ihcsdk.ihcclient import IHCSoapClient, IHCSTATE_READY
 
+_LOGGER = logging.getLogger(__name__)
 
 class IHCController:
     """
@@ -48,14 +49,17 @@ class IHCController:
                 return False
             return True
         except requests.exceptions.RequestException as exp:
-            print("is_ihc_controller: %s" % exp, file=sys.stderr)
+            _LOGGER.warning( "is_ihc_controller %s",exp)
             return False
 
     def authenticate(self) -> bool:
         """Authenticate and enable the registered notifications"""
         with IHCController._mutex:
+            _LOGGER.debug( "Authenticating login on ihc controller")
             if not self.client.authenticate(self._username, self._password):
+                _LOGGER.debug( "Authentication failed")
                 return False
+            _LOGGER.debug( "Authentication was successful")
             if self._ihcevents:
                 self.client.enable_runtime_notifications(self._ihcevents.keys())
             return True
@@ -161,6 +165,7 @@ class IHCController:
 
     def _notify_fn(self):
         """The notify thread function."""
+        _LOGGER.debug( "Starting notify thread")
         while self._notifyrunning:
             try:
                 with IHCController._mutex:
@@ -183,6 +188,7 @@ class IHCController:
                                 callback(ihcid, value)
                             self._ihcvalues[ihcid] = value
             except Exception as exp:
+                _LOGGER.error( "Exception in notify thread %s",exp)
                 self.re_authenticate(True)
 
     def re_authenticate(self, notify: bool = False) -> bool:
@@ -194,9 +200,12 @@ class IHCController:
         """
         timeout = datetime.now() + timedelta(seconds=self.reauthenticatetimeout)
         while True:
+            _LOGGER.debug( "Reauthenticating login on ihc controller")
             if self.authenticate():
                 return True
+            _LOGGER.debug( "Authenticate failed - Reauthenticating login on ihc controller in 10 sec")
 
+            # if called from the notify and notify a cancled we do not want to retry
             if notify:
                 if not self._notifyrunning:
                     return False

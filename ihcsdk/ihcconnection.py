@@ -39,6 +39,7 @@ class IHCConnection(object):
             "SOAPAction": action,
         }
         try:
+            _LOGGER.debug( "soap payload %s",payload)
             self.last_exception = None
             response = self.session.post(
                 url=self.url + service,
@@ -46,17 +47,21 @@ class IHCConnection(object):
                 data=payload,
                 verify=self.cert_verify(),
             )
+            _LOGGER.debug( "soap request response status %d",response.status_code)
         except requests.exceptions.RequestException as exp:
+            _LOGGER.error( "soap request exception %s",exp)
             self.last_exception = exp
             return False
         if response.status_code != 200:
             self.last_response = response
             return False
         try:
+            _LOGGER.debug( "soap request response %s",response.text)
             xdoc = xml.etree.ElementTree.fromstring(response.text)
             if xdoc is None:
                 return False
         except xml.etree.ElementTree.ParseError as exp:
+            _LOGGER.error( "soap request xml parse error %s",exp)
             self.last_exception = exp
             self.last_response = response
             return False

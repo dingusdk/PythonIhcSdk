@@ -8,7 +8,7 @@
             "name": "Python: Example file",
             "type": "python",
             "request": "launch",
-            "program": "example.py",
+            "program": "./example.py",
             "console": "integratedTerminal"
         }
     ]
