@@ -1,9 +1,12 @@
 """Implements soap reqeust using the "requests" module"""
 # pylint: disable=too-few-public-methods
-import xml.etree.ElementTree
+import logging
 import requests
+import xml.etree.ElementTree
+
 from urllib.parse import urlparse
 
+_LOGGER = logging.getLogger(__name__)
 
 class IHCConnection(object):
     """Implements a http connection to the controller"""
@@ -17,7 +20,6 @@ class IHCConnection(object):
     def __init__(self, url: str):
         """Initialize the IHCConnection with a url for the controller"""
         self.url = url
-        self.cookies = ""
         self.verify = False
         self.last_exception = None
         self.last_response = None
@@ -43,7 +45,6 @@ class IHCConnection(object):
                 headers=headers,
                 data=payload,
                 verify=self.cert_verify(),
-                cookies=self.cookies,
             )
         except requests.exceptions.RequestException as exp:
             self.last_exception = exp
@@ -51,7 +52,6 @@ class IHCConnection(object):
         if response.status_code != 200:
             self.last_response = response
             return False
-        self.cookies = response.cookies
         try:
             xdoc = xml.etree.ElementTree.fromstring(response.text)
             if xdoc is None:
