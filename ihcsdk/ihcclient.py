@@ -355,8 +355,8 @@ class IHCSoapClient:
             "WSIntegerValue": lambda v: int(
                 v.find("./ns2:integer", IHCSoapClient.ihcns).text
             ),
-            "WSFloatingPointValue": lambda v: float(
-                v.find("./ns2:floatingPointValue", IHCSoapClient.ihcns).text
+            "WSFloatingPointValue": lambda v: round( 
+                float( v.find("./ns2:floatingPointValue", IHCSoapClient.ihcns).text),2
             ),
             "WSEnumValue": lambda v: v.find("./ns2:enumName", IHCSoapClient.ihcns).text,
             "WSTimerValue": lambda v: int(
