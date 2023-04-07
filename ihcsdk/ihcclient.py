@@ -133,7 +133,7 @@ class IHCSoapClient:
         if xdoc is not False:
             info = {}
             elem = xdoc.find("./SOAP-ENV:Body/ns1:getProjectInfo1", IHCSoapClient.ihcns)
-            if elem:
+            if elem is not None:
                 for e in list(elem):
                     name = e.tag.split("}")[-1]
                     info[name] = IHCSoapClient.__get_value(e)
