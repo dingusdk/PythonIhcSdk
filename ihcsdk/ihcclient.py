@@ -1,6 +1,7 @@
 """
 Implements the connection to the ihc controller
 """
+
 # pylint: disable=bare-except
 import base64
 import datetime
@@ -112,7 +113,7 @@ class IHCSoapClient:
         """Get the ihc project per segments.
         Param: info .. reuse existing project info. If not provided, the get_project_info() is called internally.
         """
-        if info == None:
+        if info is None:
             info = self.get_project_info()
         if info:
             projectMajor = info.get("projectMajorRevision", 0)
@@ -355,8 +356,8 @@ class IHCSoapClient:
             "WSIntegerValue": lambda v: int(
                 v.find("./ns2:integer", IHCSoapClient.ihcns).text
             ),
-            "WSFloatingPointValue": lambda v: round( 
-                float( v.find("./ns2:floatingPointValue", IHCSoapClient.ihcns).text),2
+            "WSFloatingPointValue": lambda v: round(
+                float(v.find("./ns2:floatingPointValue", IHCSoapClient.ihcns).text), 2
             ),
             "WSEnumValue": lambda v: v.find("./ns2:enumName", IHCSoapClient.ihcns).text,
             "WSTimerValue": lambda v: int(
@@ -476,7 +477,7 @@ class IHCSoapClient:
         if change_list is False:
             return False
         last_changes = {}
-        for (id, value) in change_list:
+        for id, value in change_list:
             last_changes[id] = value
         return last_changes
 

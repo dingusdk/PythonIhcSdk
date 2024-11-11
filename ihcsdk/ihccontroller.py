@@ -2,16 +2,17 @@
 Wraps the ihcclient in a more user friendly interface to handle lost connection
 Notify thread to handle change notifications
 """
+
 # pylint: disable=invalid-name, bare-except, too-many-instance-attributes
 from datetime import datetime, timedelta
 import logging
 import requests
-import sys
 import threading
 import time
 from ihcsdk.ihcclient import IHCSoapClient, IHCSTATE_READY
 
 _LOGGER = logging.getLogger(__name__)
+
 
 class IHCController:
     """
@@ -49,17 +50,17 @@ class IHCController:
                 return False
             return True
         except requests.exceptions.RequestException as exp:
-            _LOGGER.warning( "is_ihc_controller %s",exp)
+            _LOGGER.warning("is_ihc_controller %s", exp)
             return False
 
     def authenticate(self) -> bool:
         """Authenticate and enable the registered notifications"""
         with IHCController._mutex:
-            _LOGGER.debug( "Authenticating login on ihc controller")
+            _LOGGER.debug("Authenticating login on ihc controller")
             if not self.client.authenticate(self._username, self._password):
-                _LOGGER.debug( "Authentication failed")
+                _LOGGER.debug("Authentication failed")
                 return False
-            _LOGGER.debug( "Authentication was successful")
+            _LOGGER.debug("Authentication was successful")
             if self._ihcevents:
                 self.client.enable_runtime_notifications(self._ihcevents.keys())
             return True
@@ -131,7 +132,7 @@ class IHCController:
         self.re_authenticate()
         return self.client.set_runtime_value_time(ihcid, hours, minutes, seconds)
 
-    def get_project(self) -> str:
+    def get_project(self, insegments: bool = True) -> str:
         """Get the ihc project and make sure controller is ready before"""
         with IHCController._mutex:
             if self._project is None:
@@ -139,7 +140,10 @@ class IHCController:
                     ready = self.client.wait_for_state_change(IHCSTATE_READY, 10)
                     if ready != IHCSTATE_READY:
                         return None
-                self._project = self.client.get_project_in_segments()
+                if insegments:
+                    self._project = self.client.get_project_in_segments()
+                else:
+                    self._project = self.client.get_project()
         return self._project
 
     def add_notify_event(self, resourceid: int, callback, delayed=False):
@@ -165,7 +169,7 @@ class IHCController:
 
     def _notify_fn(self):
         """The notify thread function."""
-        _LOGGER.debug( "Starting notify thread")
+        _LOGGER.debug("Starting notify thread")
         while self._notifyrunning:
             try:
                 with IHCController._mutex:
@@ -178,7 +182,7 @@ class IHCController:
                 if changes is False:
                     self.re_authenticate(True)
                     continue
-                for (ihcid, value) in changes:
+                for ihcid, value in changes:
                     if ihcid in self._ihcevents:
                         for callback in self._ihcevents[ihcid]:
                             if (
@@ -188,7 +192,7 @@ class IHCController:
                                 callback(ihcid, value)
                             self._ihcvalues[ihcid] = value
             except Exception as exp:
-                _LOGGER.error( "Exception in notify thread %s",exp)
+                _LOGGER.error("Exception in notify thread %s", exp)
                 self.re_authenticate(True)
 
     def re_authenticate(self, notify: bool = False) -> bool:
@@ -200,10 +204,12 @@ class IHCController:
         """
         timeout = datetime.now() + timedelta(seconds=self.reauthenticatetimeout)
         while True:
-            _LOGGER.debug( "Reauthenticating login on ihc controller")
+            _LOGGER.debug("Reauthenticating login on ihc controller")
             if self.authenticate():
                 return True
-            _LOGGER.debug( "Authenticate failed - Reauthenticating login on ihc controller in 10 sec")
+            _LOGGER.debug(
+                "Authenticate failed - Reauthenticating login on ihc controller in 10 sec"
+            )
 
             # if called from the notify and notify a cancled we do not want to retry
             if notify:
