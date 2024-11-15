@@ -120,7 +120,10 @@ class IHCSoapClient:
             projectMinor = info.get("projectMinorRevision", 0)
             buffer = io.BytesIO()
             for s in range(self.get_project_number_of_segments()):
-                buffer.write(self.get_project_segment(s, projectMajor, projectMinor))
+                segment = self.get_project_segment(s, projectMajor, projectMinor)
+                if segment is False:
+                    return False
+                buffer.write(segment)
             return zlib.decompress(buffer.getvalue(), 16 + zlib.MAX_WBITS).decode(
                 "ISO-8859-1"
             )
@@ -343,32 +346,31 @@ class IHCSoapClient:
 
     def __get_value(resource_value):
         """Get a runtime value from the xml base on the type in the xml"""
-        if resource_value == None:
+        if resource_value is None:
             return None
         valuetype = resource_value.attrib[
             "{http://www.w3.org/2001/XMLSchema-instance}type"
         ].split(":")[1]
-        default_fn = lambda v: v.text
-        result = {
-            "WSBooleanValue": lambda v: (
-                v.find("./ns2:value", IHCSoapClient.ihcns).text == "true"
-            ),
-            "WSIntegerValue": lambda v: int(
-                v.find("./ns2:integer", IHCSoapClient.ihcns).text
-            ),
-            "WSFloatingPointValue": lambda v: round(
-                float(v.find("./ns2:floatingPointValue", IHCSoapClient.ihcns).text), 2
-            ),
-            "WSEnumValue": lambda v: v.find("./ns2:enumName", IHCSoapClient.ihcns).text,
-            "WSTimerValue": lambda v: int(
-                v.find("./ns2:milliseconds", IHCSoapClient.ihcns).text
-            ),
-            "WSTimeValue": lambda v: IHCSoapClient.get_time(v),
-            "WSDate": lambda v: IHCSoapClient.get_datetime(v),
-            "WSDateValue": lambda v: IHCSoapClient.get_date(v),
-            "int": lambda v: int(v.text),
-        }.get(valuetype, default_fn)(resource_value)
-
+        result = resource_value.text
+        match valuetype:
+            case "WSBooleanValue":
+                result = resource_value.find("./ns2:value", IHCSoapClient.ihcns).text == "true"
+            case "WSIntegerValue":
+                result = resource_value.find("./ns2:integer", IHCSoapClient.ihcns).text
+            case "WSFloatingPointValue":
+                result = round(float(resource_value.find("./ns2:floatingPointValue", IHCSoapClient.ihcns).text), 2)
+            case "WSEnumValue":
+                result = resource_value.find("./ns2:enumName", IHCSoapClient.ihcns).text
+            case "WSTimerValue":
+                return int(resource_value.find("./ns2:milliseconds", IHCSoapClient.ihcns).text)
+            case "WSTimeValue":
+                result = IHCSoapClient.get_time(resource_value)
+            case "WSDate":
+                result = IHCSoapClient.get_datetime(resource_value)
+            case "WSDateValue":
+                result = IHCSoapClient.get_date(resource_value)
+            case "int":
+                result = int(resource_value.text)
         return result
 
     def get_runtime_value(self, resourceid: int):
@@ -534,9 +536,7 @@ class IHCSoapClient:
 
     def clear_user_log(self):
         """Clear the user log in the controller"""
-        xdoc = self.connection.soap_action(
-            "/ws/ConfigurationService", "clearUserLog", ""
-        )
+        self.connection.soap_action("/ws/ConfigurationService", "clearUserLog", "")
         return
 
     def get_system_info(self):
