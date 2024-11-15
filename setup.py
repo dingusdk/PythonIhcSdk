@@ -6,7 +6,7 @@ from setuptools import setup
 
 setup(
     name="ihcsdk",
-    version="2.8.8",
+    version="2.8.9",
     description="IHC Python SDK",
     long_description=(
         "SDK for connection to the LK IHC Controller. "
