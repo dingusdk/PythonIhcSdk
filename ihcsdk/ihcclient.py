@@ -356,7 +356,7 @@ class IHCSoapClient:
             case "WSBooleanValue":
                 result = resource_value.find("./ns2:value", IHCSoapClient.ihcns).text == "true"
             case "WSIntegerValue":
-                result = resource_value.find("./ns2:integer", IHCSoapClient.ihcns).text
+                result = int( resource_value.find("./ns2:integer", IHCSoapClient.ihcns).text)
             case "WSFloatingPointValue":
                 result = round(float(resource_value.find("./ns2:floatingPointValue", IHCSoapClient.ihcns).text), 2)
             case "WSEnumValue":
