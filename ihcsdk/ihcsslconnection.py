@@ -1,4 +1,5 @@
 """Implements soap reqeust using the "requests" module"""
+
 # pylint: disable=too-few-public-methods
 import os
 import requests
@@ -6,7 +7,6 @@ import requests
 from cryptography.x509 import load_pem_x509_certificate
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes
-from requests.adapters import HTTPAdapter
 from requests.packages.urllib3.util.ssl_ import create_urllib3_context
 
 from ihcsdk.ihcconnection import IHCConnection
@@ -19,7 +19,10 @@ class IHCSSLConnection(IHCConnection):
         """Initialize the IHCSSLConnection with a url for the controller"""
         super(IHCSSLConnection, self).__init__(url)
         self.cert_file = os.path.dirname(__file__) + "/certs/ihc3.crt"
-        self.session.mount("https://", CertAdapter(self.get_fingerprint_from_cert()))
+        self.session.mount(
+            "https://",
+            CertAdapter(self.get_fingerprint_from_cert(), max_retries=self.retries),
+        )
 
     def get_fingerprint_from_cert(self):
         """Get the fingerprint from the certificate"""
