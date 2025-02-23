@@ -9,10 +9,8 @@ import xml.etree.ElementTree
 from urllib.parse import urlparse
 from urllib3.util import Retry
 from requests.adapters import HTTPAdapter
-from functools import wraps
 
 _LOGGER = logging.getLogger(__name__)
-
    
 class IHCConnection(object):
     """Implements a http connection to the controller"""
