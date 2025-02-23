@@ -3,15 +3,17 @@
 # pylint: disable=too-few-public-methods
 import logging
 import requests
+import time
 import xml.etree.ElementTree
 
 from urllib.parse import urlparse
 from urllib3.util import Retry
 from requests.adapters import HTTPAdapter
+from functools import wraps
 
 _LOGGER = logging.getLogger(__name__)
 
-
+   
 class IHCConnection(object):
     """Implements a http connection to the controller"""
 
@@ -35,6 +37,10 @@ class IHCConnection(object):
             allowed_methods={"POST"},
         )
         self.session.mount("http://", HTTPAdapter(max_retries=self.retries))
+        # default minimum time between calls in seconds (0 will not rate limit)
+        self.min_interval: float = 0.0  
+        self.last_call_time:float  = 0
+        self.logtiming = False
 
     def cert_verify(self):
         return None
@@ -50,6 +56,7 @@ class IHCConnection(object):
             "SOAPAction": action,
         }
         try:
+            self.rateLimit()
             _LOGGER.debug("soap payload %s", payload)
             self.last_exception = None
             response = self.session.post(
@@ -75,3 +82,17 @@ class IHCConnection(object):
             self.last_exception = exp
             self.last_response = response
         return False
+    
+    def rateLimit( self):
+        """ Rate limit the calls to this function."""
+        current_time: float = time.time()
+        time_since_last_call: float = current_time - self.last_call_time
+        if self.logtiming:
+            _LOGGER.warning("time since last call %f sec", time_since_last_call)
+        # If not enough time has passed, sleep for the remaining time
+        if time_since_last_call < self.min_interval:
+            sleep_time:float = self.min_interval - time_since_last_call
+            _LOGGER.debug("Ratelimiting for %f sec", sleep_time)
+            time.sleep(sleep_time)
+        # Update the last call time and call the function
+        self.last_call_time = time.time()

@@ -70,6 +70,10 @@ class IHCController:
         TODO call disconnect on ihcclient
         """
         self._notifyrunning = False
+        # wait for notify thread to finish
+        while self._notifythread.is_alive():
+            time.sleep(0.1)  # Optional sleep to prevent busy waiting
+        self.client.connection.session.close()
 
     def get_runtime_value(self, ihcid: int):
         """Get runtime value with re-authenticate if needed"""

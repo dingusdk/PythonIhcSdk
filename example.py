@@ -6,6 +6,7 @@ The resourceid is an ihc resource id of any boolean resource in you controller.
 The resource will be toggled when the test starts, and after this you can set it
 using '1' and '2'. 'q' to quit
 """
+
 import logging
 import sys
 
@@ -15,12 +16,13 @@ from ihcsdk.ihccontroller import IHCController
 
 _LOGGER = logging.getLogger(__name__)
 
+
 def main():
     """Do the test"""
 
-    logging.basicConfig(stream=sys.stdout, level=logging.INFO)
+    logging.basicConfig(stream=sys.stdout, level=logging.WARNING)
     # set log level below to debug for further troubleshooting
-    logging.getLogger("ihcsdk").setLevel( logging.INFO)
+    logging.getLogger("ihcsdk").setLevel(logging.WARNING)
 
     starttime = datetime.now()
 
@@ -51,6 +53,8 @@ def main():
     print("Url response like a IHC controller - now authenticating")
 
     ihc = IHCController(url, username, password)
+    ihc.client.connection.min_interval = 0.05
+    ihc.client.connection.logtiming = True
     if not ihc.authenticate():
         print("Authenticate failed")
         exit()
@@ -69,6 +73,7 @@ def main():
         print("log: " + log)
 
     info = ihc.client.get_system_info()
+    print("System info: ")
     print(info)
 
     runtimevalue = ihc.get_runtime_value(resid)
@@ -78,10 +83,14 @@ def main():
     print("Runtime value: " + str(runtimevalue))
 
     ihc.client.enable_runtime_notification(resid)
+
+    logging.basicConfig(level=logging.DEBUG)
+
     changes = ihc.client.wait_for_resource_value_changes(10)
     print(repr(changes))
 
     ihc.add_notify_event(resid, on_ihc_change, True)
+    ihc.add_notify_event(2728463, on_ihc_change, True)
 
     while True:
         i = input()
@@ -96,7 +105,6 @@ def main():
         if i == "q":
             break
     ihc.disconnect()
-    ihc.client.connection.session.close()
 
 
 main()
