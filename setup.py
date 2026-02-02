@@ -1,6 +1,4 @@
-"""
-Setup of the ihcsdk module
-"""
+"""Setup of the ihcsdk module."""
 
 from setuptools import setup
 

@@ -1,1 +1,1 @@
-"""Init file for ihcsdk """
+"""Init file for ihcsdk."""

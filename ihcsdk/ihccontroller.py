@@ -1,28 +1,36 @@
 """
-Wraps the ihcclient in a more user friendly interface to handle lost connection
+Wraps the ihcclient in a more user friendly interface to handle lost connection.
+
 Notify thread to handle change notifications
 """
 
 # pylint: disable=invalid-name, bare-except, too-many-instance-attributes
-from datetime import datetime, timedelta
 import logging
-import requests
 import threading
 import time
-from ihcsdk.ihcclient import IHCSoapClient, IHCSTATE_READY
+from collections.abc import Callable
+from datetime import datetime, timedelta
+from http import HTTPStatus
+from typing import Any, Literal
+
+import requests
+
+from ihcsdk.ihcclient import IHCSTATE_READY, IHCSoapClient
 
 _LOGGER = logging.getLogger(__name__)
 
 
 class IHCController:
     """
-    Implements the notification thread and
+    Implements the notification thread.
+
     will re-authenticate if needed.
     """
 
     _mutex = threading.Lock()
 
-    def __init__(self, url: str, username: str, password: str):
+    def __init__(self, url: str, username: str, password: str) -> None:
+        """Initialize the IHC controller with connection data."""
         self.client = IHCSoapClient(url)
         self.reauthenticatetimeout = 30
         self.retryinterval = 10
@@ -35,26 +43,26 @@ class IHCController:
         self._newnotifyids = []
         self._project = None
 
+    @staticmethod
     def is_ihc_controller(url: str) -> bool:
         """Will return True if the url respods like an IHC controller."""
         try:
             client = IHCSoapClient(url)
             response = client.connection.session.get(
-                f"{url}/wsdl/controller.wsdl", verify=client.connection.cert_verify()
+                f"{url}/wsdl/controller.wsdl", verify=False
             )
-            if response.status_code != 200:
+            client.close()
+            if response.status_code != HTTPStatus.OK:
                 return False
             if not response.headers["content-type"].startswith("text/xml"):
                 return False
-            if response.text.find("getIHCProject") < 0:
-                return False
-            return True
+            return not response.text.find("getIHCProject") < 0
         except requests.exceptions.RequestException as exp:
             _LOGGER.warning("is_ihc_controller %s", exp)
             return False
 
     def authenticate(self) -> bool:
-        """Authenticate and enable the registered notifications"""
+        """Authenticate and enable the registered notifications."""
         with IHCController._mutex:
             _LOGGER.debug("Authenticating login on ihc controller")
             if not self.client.authenticate(self._username, self._password):
@@ -65,34 +73,34 @@ class IHCController:
                 self.client.enable_runtime_notifications(self._ihcevents.keys())
             return True
 
-    def disconnect(self):
-        """Disconnect by stopping the notification thread
-        TODO call disconnect on ihcclient
-        """
+    def disconnect(self) -> None:
+        """Disconnect by stopping the notification thread. And closing the client."""
         self._notifyrunning = False
         # wait for notify thread to finish
         while self._notifythread.is_alive():
             time.sleep(0.1)  # Optional sleep to prevent busy waiting
-        self.client.connection.session.close()
+        self.client.close()
 
-    def get_runtime_value(self, ihcid: int):
-        """Get runtime value with re-authenticate if needed"""
+    def get_runtime_value(
+        self, ihcid: int
+    ) -> bool | int | float | str | datetime | None:
+        """Get runtime value with re-authenticate if needed."""
         value = self.client.get_runtime_value(ihcid)
         if value is not None:
             return value
         self.re_authenticate()
         return self.client.get_runtime_value(ihcid)
 
-    def get_runtime_values(self, ihcids):
-        """Get runtime value with re-authenticate if needed"""
+    def get_runtime_values(self, ihcids: list[int]) -> dict[int, Any] | Literal[False]:
+        """Get runtime value with re-authenticate if needed."""
         value = self.client.get_runtime_values(ihcids)
         if value is not None:
             return value
         self.re_authenticate()
         return self.client.get_runtime_values(ihcids)
 
-    def cycle_bool_value(self, resourceid: int):
-        """Turn a booelan resource On and back Off"""
+    def cycle_bool_value(self, resourceid: int) -> bool | None:
+        """Turn a booelan resource On and back Off."""
         value = self.client.cycle_bool_value(resourceid)
         if value is not None:
             return value
@@ -100,28 +108,28 @@ class IHCController:
         return self.client.cycle_bool_value(resourceid)
 
     def set_runtime_value_bool(self, ihcid: int, value: bool) -> bool:
-        """Set bool runtime value with re-authenticate if needed"""
+        """Set bool runtime value with re-authenticate if needed."""
         if self.client.set_runtime_value_bool(ihcid, value):
             return True
         self.re_authenticate()
         return self.client.set_runtime_value_bool(ihcid, value)
 
     def set_runtime_value_int(self, ihcid: int, value: int) -> bool:
-        """Set integer runtime value with re-authenticate if needed"""
+        """Set integer runtime value with re-authenticate if needed."""
         if self.client.set_runtime_value_int(ihcid, value):
             return True
         self.re_authenticate()
         return self.client.set_runtime_value_int(ihcid, value)
 
     def set_runtime_value_float(self, ihcid: int, value: float) -> bool:
-        """Set float runtime value with re-authenticate if needed"""
+        """Set float runtime value with re-authenticate if needed."""
         if self.client.set_runtime_value_float(ihcid, value):
             return True
         self.re_authenticate()
         return self.client.set_runtime_value_float(ihcid, value)
 
     def set_runtime_value_timer(self, ihcid: int, value: int) -> bool:
-        """Set timer runtime value with re-authenticate if needed"""
+        """Set timer runtime value with re-authenticate if needed."""
         if self.client.set_runtime_value_timer(ihcid, value):
             return True
         self.re_authenticate()
@@ -130,14 +138,14 @@ class IHCController:
     def set_runtime_value_time(
         self, ihcid: int, hours: int, minutes: int, seconds: int
     ) -> bool:
-        """Set time runtime value with re-authenticate if needed"""
+        """Set time runtime value with re-authenticate if needed."""
         if self.client.set_runtime_value_time(ihcid, hours, minutes):
             return True
         self.re_authenticate()
         return self.client.set_runtime_value_time(ihcid, hours, minutes, seconds)
 
     def get_project(self, insegments: bool = True) -> str:
-        """Get the ihc project and make sure controller is ready before"""
+        """Get the ihc project and make sure controller is ready before."""
         with IHCController._mutex:
             if self._project is None:
                 if self.client.get_state() != IHCSTATE_READY:
@@ -150,8 +158,15 @@ class IHCController:
                     self._project = self.client.get_project()
         return self._project
 
-    def add_notify_event(self, resourceid: int, callback, delayed=False):
-        """Add a notify callback for a specified resource id
+    def add_notify_event(
+        self,
+        resourceid: int,
+        callback: Callable[[int, bool | float | str | datetime], None],
+        delayed: bool = False,
+    ) -> bool:
+        """
+        Add a notify callback for a specified resource id.
+
         If delayed is set to true the enable request will be send from the
         notofication thread
         """
@@ -162,17 +177,16 @@ class IHCController:
                 self._ihcevents[resourceid] = [callback]
                 if delayed:
                     self._newnotifyids.append(resourceid)
-                else:
-                    if not self.client.enable_runtime_notification(resourceid):
-                        return False
+                elif not self.client.enable_runtime_notification(resourceid):
+                    return False
             if not self._notifyrunning:
                 self._notifyrunning = True
                 self._notifythread.start()
 
             return True
 
-    def _notify_fn(self):
-        """The notify thread function."""
+    def _notify_fn(self) -> None:
+        """Notify thread function."""
         _LOGGER.debug("Starting notify thread")
         while self._notifyrunning:
             try:
@@ -184,7 +198,7 @@ class IHCController:
 
                 changes = self.client.wait_for_resource_value_change_list()
                 if changes is False:
-                    self.re_authenticate(True)
+                    self.re_authenticate(notify=True)
                     continue
                 for ihcid, value in changes:
                     if ihcid in self._ihcevents:
@@ -195,32 +209,33 @@ class IHCController:
                             ):
                                 callback(ihcid, value)
                             self._ihcvalues[ihcid] = value
-            except Exception as exp:
-                _LOGGER.error("Exception in notify thread %s", exp)
-                self.re_authenticate(True)
+            except Exception:
+                _LOGGER.exception("Exception in notify thread")
+                self.re_authenticate(notify=True)
 
     def re_authenticate(self, notify: bool = False) -> bool:
-        """Authenticate again after failure.
+        """
+        Authenticate again after failure.
+
         Keep trying with 10 sec interval. If called from the notify thread
         we will not have a timeout, but will end if the notify thread has
         been cancled.
         Will return True if authentication was successful.
         """
-        timeout = datetime.now() + timedelta(seconds=self.reauthenticatetimeout)
+        timeout = datetime.now() + timedelta(seconds=self.reauthenticatetimeout)  # noqa: DTZ005
         while True:
             _LOGGER.debug("Reauthenticating login on ihc controller")
             if self.authenticate():
                 return True
             _LOGGER.debug(
-                "Authenticate failed - Reauthenticating login on ihc controller in 10 sec"
+                "Authenticate failed, reauthenticating login on ihc controller in 10s"
             )
 
             # if called from the notify and notify a cancled we do not want to retry
             if notify:
                 if not self._notifyrunning:
                     return False
-            else:
-                if timeout and datetime.now() > timeout:
-                    return False
+            elif timeout and datetime.now() > timeout:  # noqa: DTZ005
+                return False
             # wait before we try to authenticate again
             time.sleep(self.retryinterval)
