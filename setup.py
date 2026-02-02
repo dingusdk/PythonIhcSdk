@@ -1,12 +1,10 @@
-"""
-Setup of the ihcsdk module
-"""
+"""Setup of the ihcsdk module."""
 
 from setuptools import setup
 
 setup(
     name="ihcsdk",
-    version="2.8.10",
+    version="2.8.11",
     description="IHC Python SDK",
     long_description=(
         "SDK for connection to the LK IHC Controller. "

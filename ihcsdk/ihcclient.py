@@ -1,12 +1,13 @@
-"""
-Implements the connection to the ihc controller
-"""
+"""Implements the connection to the ihc controller."""
 
 # pylint: disable=bare-except
 import base64
 import datetime
 import io
+import xml.etree.ElementTree as ET
 import zlib
+from typing import Any, ClassVar, Literal
+
 from ihcsdk.ihcconnection import IHCConnection
 from ihcsdk.ihcsslconnection import IHCSSLConnection
 
@@ -14,17 +15,17 @@ IHCSTATE_READY = "text.ctrl.state.ready"
 
 
 class IHCSoapClient:
-    """Implements a limited set of the soap request for the IHC controller"""
+    """Implements a limited set of the soap request for the IHC controller."""
 
-    ihcns = {
+    ihcns: ClassVar[dict[str, str]] = {
         "SOAP-ENV": "http://schemas.xmlsoap.org/soap/envelope/",
         "ns1": "utcs",
         "ns2": "utcs.values",
         "ns3": "utcs.values",
     }
 
-    def __init__(self, url: str):
-        """Initialize the IIHCSoapClient with a url for the controller"""
+    def __init__(self, url: str) -> None:
+        """Initialize the IIHCSoapClient with a url for the controller."""
         self.url = url
         self.username = ""
         self.password = ""
@@ -33,10 +34,17 @@ class IHCSoapClient:
         else:
             self.connection = IHCConnection(url)
 
+    def close(self) -> None:
+        """Close the connection."""
+        self.connection.close()
+        self.connection = None
+
     def authenticate(self, username: str, password: str) -> bool:
-        """Do an Authentricate request and save the cookie returned to be used
-        on the following requests.
-        Return True if the request was successfull
+        """
+        Do an Authentricate request.
+
+        And save the cookie returned to be used on the following requests.
+        Return True if the request was successfull.
         """
         self.username = username
         self.password = password
@@ -61,7 +69,7 @@ class IHCSoapClient:
         return False
 
     def get_state(self) -> str:
-        """Get the controller state"""
+        """Get the controller state."""
         xdoc = self.connection.soap_action("/ws/ControllerService", "getState", "")
         if xdoc is not False:
             return xdoc.find(
@@ -69,18 +77,16 @@ class IHCSoapClient:
             ).text
         return False
 
-    def wait_for_state_change(self, state: str, waitsec) -> str:
-        """Wait for controller state change and return state"""
-        payload = """<ns1:waitForControllerStateChange1
+    def wait_for_state_change(self, state: str, waitsec: int) -> str:
+        """Wait for controller state change and return state."""
+        payload = f"""<ns1:waitForControllerStateChange1
                      xmlns:ns1=\"utcs\" xsi:type=\"ns1:WSControllerState\">
                      <ns1:state xsi:type=\"xsd:string\">{state}</ns1:state>
                      </ns1:waitForControllerStateChange1>
                      <ns2:waitForControllerStateChange2
                      xmlns:ns2=\"utcs\" xsi:type=\"xsd:int\">
-                     {wait}</ns2:waitForControllerStateChange2>
-                     """.format(
-            state=state, wait=waitsec
-        )
+                     {waitsec}</ns2:waitForControllerStateChange2>
+                     """
         xdoc = self.connection.soap_action(
             "/ws/ControllerService", "waitForControllerStateChange", payload
         )
@@ -92,9 +98,11 @@ class IHCSoapClient:
         return False
 
     def get_project(self) -> str:
-        """Get the ihc project in single SOAP action.
-        You should use the get_project_in_segments to get the project in multiple segments.
-        This will stress the IHC controller less
+        """
+        Get the ihc project in single SOAP action.
+
+        You should use the get_project_in_segments to get the project in multiple
+        segments. This will stress the IHC controller less.
         """
         xdoc = self.connection.soap_action("/ws/ControllerService", "getIHCProject", "")
         if xdoc is not False:
@@ -109,18 +117,21 @@ class IHCSoapClient:
             )
         return False
 
-    def get_project_in_segments(self, info=None) -> str:
-        """Get the ihc project per segments.
-        Param: info .. reuse existing project info. If not provided, the get_project_info() is called internally.
+    def get_project_in_segments(self, info: dict[str, Any] | None = None) -> str:
+        """
+        Get the ihc project per segments.
+
+        Param: info .. reuse existing project info.
+        If not provided, the get_project_info() is called internally.
         """
         if info is None:
             info = self.get_project_info()
         if info:
-            projectMajor = info.get("projectMajorRevision", 0)
-            projectMinor = info.get("projectMinorRevision", 0)
+            project_major = info.get("projectMajorRevision", 0)
+            project_minor = info.get("projectMinorRevision", 0)
             buffer = io.BytesIO()
             for s in range(self.get_project_number_of_segments()):
-                segment = self.get_project_segment(s, projectMajor, projectMinor)
+                segment = self.get_project_segment(s, project_major, project_minor)
                 if segment is False:
                     return False
                 buffer.write(segment)
@@ -129,8 +140,8 @@ class IHCSoapClient:
             )
         return False
 
-    def get_project_info(self) -> dict:
-        """Returns dictionary of project info items."""
+    def get_project_info(self) -> dict[str, Any]:
+        """Return dictionary of project info items."""
         xdoc = self.connection.soap_action(
             "/ws/ControllerService", "getProjectInfo", ""
         )
@@ -145,7 +156,7 @@ class IHCSoapClient:
         return False
 
     def get_project_number_of_segments(self) -> int:
-        """Returns the number of segments needed to fetch the current ihc-project."""
+        """Return the number of segments needed to fetch the current ihc-project."""
         xdoc = self.connection.soap_action(
             "/ws/ControllerService", "getIHCProjectNumberOfSegments", ""
         )
@@ -158,20 +169,23 @@ class IHCSoapClient:
             )
         return False
 
-    def get_project_segment(self, segment: int, projectMajor: int, projectMinor: int):
-        """Returns a segment of the ihc-project with the given number.
-        Returns null if the segment number increases above the number of segments available.
-        The segments are offset from 0.
-        The project-versions given as parameters are used to indentify the project that should be fetched.
-        That is, to make sure that you suddenly don't get segments belonging to another project.
+    def get_project_segment(
+        self, segment: int, project_major: int, project_minor: int
+    ) -> bytes:
         """
-        payload = """
+        Return a segment of the ihc-project with the given number.
+
+        Returns null if the segment number increases above the number of segments
+        available. The segments are offset from 0.
+        The project-versions given as parameters are used to indentify the project that
+        should be fetched. That is, to make sure that you suddenly don't get segments
+        belonging to another project.
+        """
+        payload = f"""
             <getIHCProjectSegment1 xmlns="utcs">{segment}</getIHCProjectSegment1>
-            <getIHCProjectSegment2 xmlns="utcs">{major}</getIHCProjectSegment2>
-            <getIHCProjectSegment3 xmlns="utcs">{minor}</getIHCProjectSegment3>
-            """.format(
-            segment=segment, major=projectMajor, minor=projectMinor
-        )
+            <getIHCProjectSegment2 xmlns="utcs">{project_major}</getIHCProjectSegment2>
+            <getIHCProjectSegment3 xmlns="utcs">{project_minor}</getIHCProjectSegment3>
+            """
         xdoc = self.connection.soap_action(
             "/ws/ControllerService", "getIHCProjectSegment", payload
         )
@@ -182,29 +196,22 @@ class IHCSoapClient:
             ).text
             if not base64:
                 return False
-            compresseddata = base64.b64decode(base64data)
-            return compresseddata
+            return base64.b64decode(base64data)
         return False
 
     def set_runtime_value_bool(self, resourceid: int, value: bool) -> bool:
-        """Set a boolean runtime value"""
-        if value:
-            boolvalue = "true"
-        else:
-            boolvalue = "false"
-
-        payload = """
+        """Set a boolean runtime value."""
+        boolvalue = "true" if value else "false"
+        payload = f"""
             <setResourceValue1 xmlns=\"utcs\"
             xmlns:i=\"http://www.w3.org/2001/XMLSchema-instance\">
             <value i:type=\"a:WSBooleanValue\" xmlns:a=\"utcs.values\">
-            <a:value>{value}</a:value></value>
+            <a:value>{boolvalue}</a:value></value>
             <typeString/>
-            <resourceID>{id}</resourceID>
+            <resourceID>{resourceid}</resourceID>
             <isValueRuntime>true</isValueRuntime>
             </setResourceValue1>
-            """.format(
-            id=resourceid, value=boolvalue
-        )
+            """
         xdoc = self.connection.soap_action(
             "/ws/ResourceInteractionService", "setResourceValue", payload
         )
@@ -215,20 +222,18 @@ class IHCSoapClient:
             return result == "true"
         return False
 
-    def set_runtime_value_int(self, resourceid: int, intvalue: int):
-        """Set a integer runtime value"""
-        payload = """
+    def set_runtime_value_int(self, resourceid: int, intvalue: int) -> bool:
+        """Set a integer runtime value."""
+        payload = f"""
             <setResourceValue1 xmlns=\"utcs\"
             xmlns:i=\"http://www.w3.org/2001/XMLSchema-instance\">
             <value i:type=\"a:WSIntegerValue\" xmlns:a=\"utcs.values\">
-            <a:integer>{value}</a:integer></value>
+            <a:integer>{intvalue}</a:integer></value>
             <typeString/>
-            <resourceID>{id}</resourceID>
+            <resourceID>{resourceid}</resourceID>
             <isValueRuntime>true</isValueRuntime>
             </setResourceValue1>
-            """.format(
-            id=resourceid, value=intvalue
-        )
+            """
         xdoc = self.connection.soap_action(
             "/ws/ResourceInteractionService", "setResourceValue", payload
         )
@@ -239,21 +244,19 @@ class IHCSoapClient:
             return result == "true"
         return False
 
-    def set_runtime_value_float(self, resourceid: int, floatvalue: float):
-        """Set a flot runtime value"""
-        payload = """
+    def set_runtime_value_float(self, resourceid: int, floatvalue: float) -> bool:
+        """Set a flot runtime value."""
+        payload = f"""
             <setResourceValue1 xmlns=\"utcs\"
             xmlns:i=\"http://www.w3.org/2001/XMLSchema-instance\">
             <value i:type=\"a:WSFloatingPointValue\" xmlns:a=\"utcs.values\">
-            <a:floatingPointValue>{value}</a:floatingPointValue></value>
+            <a:floatingPointValue>{floatvalue}</a:floatingPointValue></value>
             <typeString/>
-            <resourceID>{id}</resourceID>
+            <resourceID>{resourceid}</resourceID>
             <isValueRuntime>true</isValueRuntime>
             </setResourceValue1>
             </s:Body>
-            """.format(
-            id=resourceid, value=floatvalue
-        )
+            """
         xdoc = self.connection.soap_action(
             "/ws/ResourceInteractionService", "setResourceValue", payload
         )
@@ -264,21 +267,19 @@ class IHCSoapClient:
             return result == "true"
         return False
 
-    def set_runtime_value_timer(self, resourceid: int, timer: int):
-        """Set a timer runtime value in milliseconds"""
-        payload = """
+    def set_runtime_value_timer(self, resourceid: int, timer: int) -> bool:
+        """Set a timer runtime value in milliseconds."""
+        payload = f"""
             <setResourceValue1 xmlns=\"utcs\"
             xmlns:i=\"http://www.w3.org/2001/XMLSchema-instance\">
             <value i:type=\"a:WSTimerValue\" xmlns:a=\"utcs.values\">
-            <a:milliseconds>{value}</a:milliseconds></value>
+            <a:milliseconds>{timer}</a:milliseconds></value>
             <typeString/>
-            <resourceID>{id}</resourceID>
+            <resourceID>{resourceid}</resourceID>
             <isValueRuntime>true</isValueRuntime>
             </setResourceValue1>
             </s:Body>
-            """.format(
-            id=resourceid, value=timer
-        )
+            """
         xdoc = self.connection.soap_action(
             "/ws/ResourceInteractionService", "setResourceValue", payload
         )
@@ -291,8 +292,8 @@ class IHCSoapClient:
 
     def set_runtime_value_time(
         self, resourceid: int, hours: int, minutes: int, seconds: int
-    ):
-        """Set a time runtime value in hours:minutes:seconds"""
+    ) -> bool:
+        """Set a time runtime value in hours:minutes:seconds."""
         payload = f"""
             <setResourceValue1 xmlns=\"utcs\"
             xmlns:i=\"http://www.w3.org/2001/XMLSchema-instance\">
@@ -317,15 +318,16 @@ class IHCSoapClient:
             return result == "true"
         return False
 
-    def get_time(resource_value):
-
+    @staticmethod
+    def _get_time(resource_value: ET.Element) -> datetime.time:
         hours = int(resource_value.find("./ns2:hours", IHCSoapClient.ihcns).text)
         minutes = int(resource_value.find("./ns2:minutes", IHCSoapClient.ihcns).text)
         seconds = int(resource_value.find("./ns2:seconds", IHCSoapClient.ihcns).text)
 
         return datetime.time(hours, minutes, seconds)
 
-    def get_datetime(resource_value):
+    @staticmethod
+    def _get_datetime(resource_value: ET.Element) -> datetime.datetime:
         year = int(resource_value.find("./ns1:year", IHCSoapClient.ihcns).text)
         month = int(
             resource_value.find("./ns1:monthWithJanuaryAsOne", IHCSoapClient.ihcns).text
@@ -334,18 +336,22 @@ class IHCSoapClient:
         hours = int(resource_value.find("./ns1:hours", IHCSoapClient.ihcns).text)
         minutes = int(resource_value.find("./ns1:minutes", IHCSoapClient.ihcns).text)
         seconds = int(resource_value.find("./ns1:seconds", IHCSoapClient.ihcns).text)
-        return datetime.datetime(year, month, day, hours, minutes, seconds)
+        return datetime.datetime(year, month, day, hours, minutes, seconds)  # noqa: DTZ001
 
-    def get_date(resource_value):
+    @staticmethod
+    def _get_date(resource_value: ET.Element) -> datetime.datetime:
         year = int(resource_value.find("./ns2:year", IHCSoapClient.ihcns).text)
         if year == 0:
-            year = datetime.datetime.today().year
+            year = datetime.datetime.today().year  # noqa: DTZ002
         month = int(resource_value.find("./ns2:month", IHCSoapClient.ihcns).text)
         day = int(resource_value.find("./ns2:day", IHCSoapClient.ihcns).text)
-        return datetime.datetime(year, month, day)
+        return datetime.datetime(year, month, day)  # noqa: DTZ001
 
-    def __get_value(resource_value):
-        """Get a runtime value from the xml base on the type in the xml"""
+    @staticmethod
+    def __get_value(
+        resource_value: ET.Element,
+    ) -> bool | int | float | str | datetime.datetime | None:
+        """Get a runtime value from the xml base on the type in the xml."""
         if resource_value is None:
             return None
         valuetype = resource_value.attrib[
@@ -354,34 +360,50 @@ class IHCSoapClient:
         result = resource_value.text
         match valuetype:
             case "WSBooleanValue":
-                result = resource_value.find("./ns2:value", IHCSoapClient.ihcns).text == "true"
+                result = (
+                    resource_value.find("./ns2:value", IHCSoapClient.ihcns).text
+                    == "true"
+                )
             case "WSIntegerValue":
-                result = int(resource_value.find("./ns2:integer", IHCSoapClient.ihcns).text)
+                result = int(
+                    resource_value.find("./ns2:integer", IHCSoapClient.ihcns).text
+                )
             case "WSFloatingPointValue":
-                result = round(float(resource_value.find("./ns2:floatingPointValue", IHCSoapClient.ihcns).text), 2)
+                result = round(
+                    float(
+                        resource_value.find(
+                            "./ns2:floatingPointValue", IHCSoapClient.ihcns
+                        ).text
+                    ),
+                    2,
+                )
             case "WSEnumValue":
                 result = resource_value.find("./ns2:enumName", IHCSoapClient.ihcns).text
             case "WSTimerValue":
-                return int(resource_value.find("./ns2:milliseconds", IHCSoapClient.ihcns).text)
+                return int(
+                    resource_value.find("./ns2:milliseconds", IHCSoapClient.ihcns).text
+                )
             case "WSTimeValue":
-                result = IHCSoapClient.get_time(resource_value)
+                result = IHCSoapClient._get_time(resource_value)
             case "WSDate":
-                result = IHCSoapClient.get_datetime(resource_value)
+                result = IHCSoapClient._get_datetime(resource_value)
             case "WSDateValue":
-                result = IHCSoapClient.get_date(resource_value)
+                result = IHCSoapClient._get_date(resource_value)
             case "int":
                 result = int(resource_value.text)
         return result
 
-    def get_runtime_value(self, resourceid: int):
-        """Get runtime value of specified resource it
+    def get_runtime_value(
+        self, resourceid: int
+    ) -> bool | int | float | str | datetime.datetime | None:
+        """
+        Get runtime value of specified resource id.
+
         The returned value will be boolean, integer or float
         Return None if resource cannot be found or on error
         """
-        payload = """<getRuntimeValue1 xmlns="utcs">{id}</getRuntimeValue1>
-                  """.format(
-            id=resourceid
-        )
+        payload = f"""<getRuntimeValue1 xmlns="utcs">{resourceid}</getRuntimeValue1>
+                  """
         xdoc = self.connection.soap_action(
             "/ws/ResourceInteractionService", "getResourceValue", payload
         )
@@ -392,14 +414,17 @@ class IHCSoapClient:
         )
         return IHCSoapClient.__get_value(value)
 
-    def get_runtime_values(self, resourceids):
-        """Get runtime values of specified resource ids
+    def get_runtime_values(
+        self, resourceids: list[int]
+    ) -> dict[int, Any] | Literal[False]:
+        """
+        Get runtime values of specified resource ids.
+
         Return None if resource cannot be found or on error
         """
-
         idsarr = ""
         for ihcid in resourceids:
-            idsarr += "<arrayItem>{id}</arrayItem>".format(id=ihcid)
+            idsarr += f"<arrayItem>{ihcid}</arrayItem>"
         payload = '<getRuntimeValues1 xmlns="utcs">' + idsarr + "</getRuntimeValues1>"
         xdoc = self.connection.soap_action(
             "/ws/ResourceInteractionService", "getResourceValues", payload
@@ -414,17 +439,19 @@ class IHCSoapClient:
             ihcid = item.find("ns1:resourceID", IHCSoapClient.ihcns)
             if ihcid is None:
                 continue
-            resourceValue = item.find("./ns1:value", IHCSoapClient.ihcns)
-            itemValue = IHCSoapClient.__get_value(resourceValue)
-            if itemValue is not None:
-                changes[int(ihcid.text)] = itemValue
+            resource_value = item.find("./ns1:value", IHCSoapClient.ihcns)
+            item_value = IHCSoapClient.__get_value(resource_value)
+            if item_value is not None:
+                changes[int(ihcid.text)] = item_value
         return changes
 
-    def cycle_bool_value(self, resourceid: int):
-        """Turn a booelan resource On and back Off
+    def cycle_bool_value(self, resourceid: int) -> bool | None:
+        """
+        Turn a booelan resource On and back Off.
+
         Return None if resource cannot be found or on error
         """
-        setBool = (
+        set_bool = (
             "<arrayItem>"
             '<value xsi:type="ns1:WSBooleanValue">'
             "<ns1:value>{value}</ns1:value>"
@@ -436,8 +463,8 @@ class IHCSoapClient:
         )
         payload = (
             '<setResourceValues1 xmlns="utcs" xmlns:ns1="utcs.values">'
-            + setBool.format(value="true", id=resourceid)
-            + setBool.format(value="false", id=resourceid)
+            + set_bool.format(value="true", id=resourceid)
+            + set_bool.format(value="false", id=resourceid)
             + "</setResourceValues1>"
         )
         xdoc = self.connection.soap_action(
@@ -447,53 +474,53 @@ class IHCSoapClient:
             return None
         return True
 
-    def enable_runtime_notification(self, resourceid: int):
-        """Enable notification for specified resource id"""
+    def enable_runtime_notification(self, resourceid: int) -> bool:
+        """Enable notification for specified resource id."""
         return self.enable_runtime_notifications([resourceid])
 
-    def enable_runtime_notifications(self, resourceids):
-        """Enable notification for specified resource ids"""
+    def enable_runtime_notifications(self, resourceids: list[int]) -> bool:
+        """Enable notification for specified resource ids."""
         idsarr = ""
         for ihcid in resourceids:
-            idsarr += "<a:arrayItem>{id}</a:arrayItem>".format(id=ihcid)
+            idsarr += f"<a:arrayItem>{ihcid}</a:arrayItem>"
 
-        payload = """<enableRuntimeValueNotifications1 xmlns=\"utcs\"
+        payload = f"""<enableRuntimeValueNotifications1 xmlns=\"utcs\"
                      xmlns:a=\"http://www.w3.org/2001/XMLSchema\"
                      xmlns:i=\"http://www.w3.org/2001/XMLSchema-instance\">
-                     {arr}
+                     {idsarr}
                      </enableRuntimeValueNotifications1>
-                     """.format(
-            arr=idsarr
-        )
+                     """
         xdoc = self.connection.soap_action(
             "/ws/ResourceInteractionService", "enableRuntimeValueNotifications", payload
         )
         return xdoc is not False
 
-    def wait_for_resource_value_changes(self, wait: int = 10):
+    def wait_for_resource_value_changes(
+        self, wait: int = 10
+    ) -> dict[int, str] | Literal[False]:
         """
-        Long polling for changes and return a dictionary with resource:value
-        for changes (Only last change)
+        Long polling for changes.
+
+        And return a dictionary with resource:value for changes (Only last change)
         """
         change_list = self.wait_for_resource_value_change_list(wait)
         if change_list is False:
             return False
-        last_changes = {}
-        for id, value in change_list:
-            last_changes[id] = value
-        return last_changes
+        return dict(change_list)
 
-    def wait_for_resource_value_change_list(self, wait: int = 10):
+    def wait_for_resource_value_change_list(
+        self, wait: int = 10
+    ) -> list[(int, Any)] | Literal[False]:
         """
-        Long polling for changes and return a resource id dictionary with a list of all changes since last poll.
+        Long polling for changes.
+
+        And return a resource id dictionary with a list of all changes since last poll.
         Return a list of tuples with the id,value
         """
         changes = []
-        payload = """<waitForResourceValueChanges1
-                     xmlns=\"utcs\">{timeout}</waitForResourceValueChanges1>
-                  """.format(
-            timeout=wait
-        )
+        payload = f"""<waitForResourceValueChanges1
+                     xmlns=\"utcs\">{wait}</waitForResourceValueChanges1>
+                  """
         xdoc = self.connection.soap_action(
             "/ws/ResourceInteractionService", "getResourceValue", payload
         )
@@ -514,14 +541,12 @@ class IHCSoapClient:
                 changes.append((int(ihcid.text), value))
         return changes
 
-    def get_user_log(self, language="da"):
-        """Get the controller state"""
-        payload = """<getUserLog1 xmlns="utcs" />
+    def get_user_log(self, language: str = "da") -> str | Literal[False]:
+        """Get the controller state."""
+        payload = f"""<getUserLog1 xmlns="utcs" />
                      <getUserLog2 xmlns="utcs">0</getUserLog2>
                      <getUserLog3 xmlns="utcs">{language}</getUserLog3>
-                     """.format(
-            language=language
-        )
+                     """
         xdoc = self.connection.soap_action(
             "/ws/ConfigurationService", "getUserLog", payload
         )
@@ -534,50 +559,47 @@ class IHCSoapClient:
             return base64.b64decode(base64data).decode("UTF-8")
         return False
 
-    def clear_user_log(self):
-        """Clear the user log in the controller"""
+    def clear_user_log(self) -> None:
+        """Clear the user log in the controller."""
         self.connection.soap_action("/ws/ConfigurationService", "clearUserLog", "")
-        return
 
-    def get_system_info(self):
-        """Get controller system info"""
+    def get_system_info(self) -> dict[str, str] | bool:
+        """Get controller system info."""
         xdoc = self.connection.soap_action(
             "/ws/ConfigurationService", "getSystemInfo", ""
         )
         if xdoc is False:
             return False
-        info = {
-            "uptime": IHCSoapClient.__extract_sysinfo(xdoc, "uptime"),
-            "realtimeclock": IHCSoapClient.__extract_sysinfo(xdoc, "realtimeclock"),
-            "serial_number": IHCSoapClient.__extract_sysinfo(xdoc, "serialNumber"),
-            "production_date": IHCSoapClient.__extract_sysinfo(xdoc, "productionDate"),
-            "brand": IHCSoapClient.__extract_sysinfo(xdoc, "brand"),
-            "version": IHCSoapClient.__extract_sysinfo(xdoc, "version"),
-            "hw_revision": IHCSoapClient.__extract_sysinfo(xdoc, "hwRevision"),
-            "sw_date": IHCSoapClient.__extract_sysinfo(xdoc, "swDate"),
-            "dataline_version": IHCSoapClient.__extract_sysinfo(
-                xdoc, "datalineVersion"
-            ),
-            "rf_module_software_version": IHCSoapClient.__extract_sysinfo(
+        return {
+            "uptime": IHCSoapClient._extract_sysinfo(xdoc, "uptime"),
+            "realtimeclock": IHCSoapClient._extract_sysinfo(xdoc, "realtimeclock"),
+            "serial_number": IHCSoapClient._extract_sysinfo(xdoc, "serialNumber"),
+            "production_date": IHCSoapClient._extract_sysinfo(xdoc, "productionDate"),
+            "brand": IHCSoapClient._extract_sysinfo(xdoc, "brand"),
+            "version": IHCSoapClient._extract_sysinfo(xdoc, "version"),
+            "hw_revision": IHCSoapClient._extract_sysinfo(xdoc, "hwRevision"),
+            "sw_date": IHCSoapClient._extract_sysinfo(xdoc, "swDate"),
+            "dataline_version": IHCSoapClient._extract_sysinfo(xdoc, "datalineVersion"),
+            "rf_module_software_version": IHCSoapClient._extract_sysinfo(
                 xdoc, "rfModuleSoftwareVersion"
             ),
-            "rf_module_serial_number": IHCSoapClient.__extract_sysinfo(
+            "rf_module_serial_number": IHCSoapClient._extract_sysinfo(
                 xdoc, "rfModuleSerialNumber"
             ),
-            "application_is_without_viewer": IHCSoapClient.__extract_sysinfo(
+            "application_is_without_viewer": IHCSoapClient._extract_sysinfo(
                 xdoc, "applicationIsWithoutViewer"
             ),
-            "sms_modem_software_version": IHCSoapClient.__extract_sysinfo(
+            "sms_modem_software_version": IHCSoapClient._extract_sysinfo(
                 xdoc, "smsModemSoftwareVersion"
             ),
-            "led_dimmer_software_version": IHCSoapClient.__extract_sysinfo(
+            "led_dimmer_software_version": IHCSoapClient._extract_sysinfo(
                 xdoc, "ledDimmerSoftwareVersion"
             ),
         }
-        return info
 
-    def __extract_sysinfo(xdoc, param) -> str:
-        """Internal function to extrach a parameter from system info"""
+    @staticmethod
+    def _extract_sysinfo(xdoc: ET.Element, param: str) -> str:
+        """Extract a parameter from system info."""
         element = xdoc.find(
             f"./SOAP-ENV:Body/ns1:getSystemInfo1/ns1:{param}", IHCSoapClient.ihcns
         )
