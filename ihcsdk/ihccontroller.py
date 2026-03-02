@@ -139,7 +139,7 @@ class IHCController:
         self, ihcid: int, hours: int, minutes: int, seconds: int
     ) -> bool:
         """Set time runtime value with re-authenticate if needed."""
-        if self.client.set_runtime_value_time(ihcid, hours, minutes):
+        if self.client.set_runtime_value_time(ihcid, hours, minutes, seconds):
             return True
         self.re_authenticate()
         return self.client.set_runtime_value_time(ihcid, hours, minutes, seconds)
