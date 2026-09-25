@@ -88,7 +88,10 @@ class IHCSoapClient:
                      {waitsec}</ns2:waitForControllerStateChange2>
                      """
         xdoc = self.connection.soap_action(
-            "/ws/ControllerService", "waitForControllerStateChange", payload
+            "/ws/ControllerService",
+            "waitForControllerStateChange",
+            payload,
+            wait=waitsec,
         )
         if xdoc is not False:
             return xdoc.find(
@@ -522,7 +525,7 @@ class IHCSoapClient:
                      xmlns=\"utcs\">{wait}</waitForResourceValueChanges1>
                   """
         xdoc = self.connection.soap_action(
-            "/ws/ResourceInteractionService", "getResourceValue", payload
+            "/ws/ResourceInteractionService", "getResourceValue", payload, wait=wait
         )
         if xdoc is False:
             return False
