@@ -202,13 +202,14 @@ class IHCController:
                     continue
                 for ihcid, value in changes:
                     if ihcid in self._ihcevents:
-                        for callback in self._ihcevents[ihcid]:
-                            if (
-                                ihcid not in self._ihcvalues
-                                or value != self._ihcvalues[ihcid]
-                            ):
+                        if (
+                            ihcid not in self._ihcvalues
+                            or value != self._ihcvalues[ihcid]
+                        ):
+                            for callback in self._ihcevents[ihcid]:
                                 callback(ihcid, value)
-                            self._ihcvalues[ihcid] = value
+                        self._ihcvalues[ihcid] = value
+
             except Exception:
                 _LOGGER.exception("Exception in notify thread")
                 self.re_authenticate(notify=True)
