@@ -4,7 +4,7 @@ import logging
 import time
 import xml.etree.ElementTree as ET
 from http import HTTPStatus
-from typing import Literal
+from typing import Literal, Optional, Tuple
 from urllib.parse import urlparse
 
 import requests
@@ -37,6 +37,11 @@ class IHCConnection:
             allowed_methods={"POST"},
         )
         self.session.mount("http://", HTTPAdapter(max_retries=self.retries))
+        # (connect, read) timeout in seconds for every request. Without it a
+        # request can block forever if the network drops mid-request, which
+        # leaves the notify thread hanging. The read timeout must be longer
+        # than the wait time of the long polls, see soap_action().
+        self.timeout: Tuple[float, float] = (10.0, 20.0)
         # default minimum time between calls in seconds (0 will not rate limit)
         self.min_interval: float = 0.0
         self.last_call_time: float = 0
@@ -52,9 +57,21 @@ class IHCConnection:
         return None
 
     def soap_action(
-        self, service: str, action: str, payloadbody: str
+        self,
+        service: str,
+        action: str,
+        payloadbody: str,
+        wait: Optional[int] = None,
     ) -> ET.Element | Literal[False]:
-        """Do a soap request."""
+        """Do a soap request.
+
+        wait is the time in seconds the controller may hold a long poll
+        before answering. It is added to the read timeout so a long poll
+        never times out on the client side before it does on the controller.
+        """
+        timeout = self.timeout
+        if wait:
+            timeout = (timeout[0], timeout[1] + wait)
         payload = self.soapenvelope.format(body=payloadbody).encode("utf-8")
         headers = {
             "Host": urlparse(self.url).netloc,
@@ -72,6 +89,7 @@ class IHCConnection:
                 headers=headers,
                 data=payload,
                 verify=self.cert_verify(),
+                timeout=timeout,
             )
             _LOGGER.debug("soap request response status %d", response.status_code)
             if response.status_code != HTTPStatus.OK:
