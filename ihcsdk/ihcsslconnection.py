@@ -26,7 +26,8 @@ class IHCSSLConnection(IHCConnection):
 
     def get_fingerprint_from_cert(self) -> str:
         """Get the fingerprint from the certificate."""
-        pem = open(self.cert_file, "rb").read()
+        with open(self.cert_file, "rb") as cert_file:
+            pem = cert_file.read()
         cert = load_pem_x509_certificate(pem, default_backend())
         f = cert.fingerprint(hashes.SHA1())
         return "".join("{:02x}".format(x) for x in f)

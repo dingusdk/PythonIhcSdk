@@ -1,6 +1,7 @@
 """Implements soap reqeust using the "requests" module."""
 
 import logging
+import re
 import time
 import xml.etree.ElementTree as ET
 from http import HTTPStatus
@@ -12,6 +13,13 @@ from requests.adapters import HTTPAdapter
 from urllib3.util import Retry
 
 _LOGGER = logging.getLogger(__name__)
+
+_PASSWORD = re.compile(rb"(<password>).*?(</password>)", re.DOTALL)
+
+
+def _mask_password(match: "re.Match[bytes]") -> bytes:
+    """Keep the tags, hide the password, so the debug log never contains it."""
+    return match.group(1) + b"***" + match.group(2)
 
 
 class IHCConnection:
@@ -69,6 +77,9 @@ class IHCConnection:
         before answering. It is added to the read timeout so a long poll
         never times out on the client side before it does on the controller.
         """
+        if self.session is None:
+            _LOGGER.debug("soap request on a closed connection ignored")
+            return False
         timeout = self.timeout
         if wait:
             timeout = (timeout[0], timeout[1] + wait)
@@ -82,7 +93,7 @@ class IHCConnection:
         }
         try:
             self.rate_limit()
-            _LOGGER.debug("soap payload %s", payload)
+            _LOGGER.debug("soap payload %s", _PASSWORD.sub(_mask_password, payload))
             self.last_exception = None
             response = self.session.post(
                 url=self.url + service,

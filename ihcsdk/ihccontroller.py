@@ -27,8 +27,6 @@ class IHCController:
     will re-authenticate if needed.
     """
 
-    _mutex = threading.Lock()
-
     def __init__(self, url: str, username: str, password: str) -> None:
         """Initialize the IHC controller with connection data."""
         self.client = IHCSoapClient(url)
@@ -38,47 +36,63 @@ class IHCController:
         self._password = password
         self._ihcevents = {}
         self._ihcvalues = {}
-        self._notifythread = threading.Thread(target=self._notify_fn)
+        self._mutex = threading.Lock()
+        self._auth_lock = threading.Lock()
+        self._project_lock = threading.Lock()
+        self._notifythread = None
         self._notifyrunning = False
         self._newnotifyids = []
+        self._failed_ids = []
         self._project = None
 
     @staticmethod
     def is_ihc_controller(url: str) -> bool:
         """Will return True if the url respods like an IHC controller."""
+        client = IHCSoapClient(url)
         try:
-            client = IHCSoapClient(url)
             response = client.connection.session.get(
-                f"{url}/wsdl/controller.wsdl", verify=False
+                f"{url}/wsdl/controller.wsdl",
+                verify=False,
+                timeout=client.connection.timeout,
             )
-            client.close()
             if response.status_code != HTTPStatus.OK:
                 return False
-            if not response.headers["content-type"].startswith("text/xml"):
+            if not response.headers.get("content-type", "").startswith("text/xml"):
                 return False
             return not response.text.find("getIHCProject") < 0
         except requests.exceptions.RequestException as exp:
             _LOGGER.warning("is_ihc_controller %s", exp)
             return False
+        finally:
+            client.close()
 
     def authenticate(self) -> bool:
         """Authenticate and enable the registered notifications."""
-        with IHCController._mutex:
+        with self._auth_lock:
             _LOGGER.debug("Authenticating login on ihc controller")
             if not self.client.authenticate(self._username, self._password):
                 _LOGGER.debug("Authentication failed")
                 return False
             _LOGGER.debug("Authentication was successful")
-            if self._ihcevents:
-                self.client.enable_runtime_notifications(self._ihcevents.keys())
+            with self._mutex:
+                resourceids = list(self._ihcevents)
+            if resourceids:
+                self.client.enable_runtime_notifications(resourceids)
             return True
 
-    def disconnect(self) -> None:
+    def disconnect(self, timeout: float | None = 60) -> None:
         """Disconnect by stopping the notification thread. And closing the client."""
         self._notifyrunning = False
-        # wait for notify thread to finish
-        while self._notifythread.is_alive():
-            time.sleep(0.1)  # Optional sleep to prevent busy waiting
+        thread = self._notifythread
+        if (
+            thread is not None
+            and thread.is_alive()
+            and thread is not threading.current_thread()
+        ):
+            # wait for notify thread to finish
+            thread.join(timeout)
+            if thread.is_alive():
+                _LOGGER.warning("The notification thread did not stop in time")
         self.client.close()
 
     def get_runtime_value(
@@ -94,7 +108,7 @@ class IHCController:
     def get_runtime_values(self, ihcids: list[int]) -> dict[int, Any] | Literal[False]:
         """Get runtime value with re-authenticate if needed."""
         value = self.client.get_runtime_values(ihcids)
-        if value is not None:
+        if value is not False:
             return value
         self.re_authenticate()
         return self.client.get_runtime_values(ihcids)
@@ -146,7 +160,7 @@ class IHCController:
 
     def get_project(self, insegments: bool = True) -> str:
         """Get the ihc project and make sure controller is ready before."""
-        with IHCController._mutex:
+        with self._project_lock:
             if self._project is None:
                 if self.client.get_state() != IHCSTATE_READY:
                     ready = self.client.wait_for_state_change(IHCSTATE_READY, 10)
@@ -170,49 +184,84 @@ class IHCController:
         If delayed is set to true the enable request will be send from the
         notofication thread
         """
-        with IHCController._mutex:
+        enable_now = False
+        with self._mutex:
             if resourceid in self._ihcevents:
                 self._ihcevents[resourceid].append(callback)
             else:
                 self._ihcevents[resourceid] = [callback]
                 if delayed:
                     self._newnotifyids.append(resourceid)
-                elif not self.client.enable_runtime_notification(resourceid):
-                    return False
-            if not self._notifyrunning:
-                self._notifyrunning = True
-                self._notifythread.start()
+                else:
+                    enable_now = True
+            self._start_notify_thread()
+        if enable_now and not self.client.enable_runtime_notification(resourceid):
+            return False
+        return True
 
-            return True
+    def _start_notify_thread(self) -> None:
+        """Start the notification thread (the caller holds ``_mutex``)."""
+        if self._notifyrunning:
+            return
+        self._notifyrunning = True
+        self._notifythread = threading.Thread(
+            target=self._notify_fn, name="ihc-notify", daemon=True
+        )
+        self._notifythread.start()
 
     def _notify_fn(self) -> None:
         """Notify thread function."""
         _LOGGER.debug("Starting notify thread")
         while self._notifyrunning:
             try:
-                with IHCController._mutex:
-                    # Are there are any new ids to be added?
-                    if self._newnotifyids:
-                        self.client.enable_runtime_notifications(self._newnotifyids)
-                        self._newnotifyids = []
+                self._enable_pending_notifications()
 
                 changes = self.client.wait_for_resource_value_change_list()
                 if changes is False:
                     self.re_authenticate(notify=True)
                     continue
                 for ihcid, value in changes:
-                    if ihcid in self._ihcevents:
-                        if (
-                            ihcid not in self._ihcvalues
-                            or value != self._ihcvalues[ihcid]
-                        ):
-                            for callback in self._ihcevents[ihcid]:
-                                callback(ihcid, value)
-                        self._ihcvalues[ihcid] = value
-
+                    self._dispatch(ihcid, value)
             except Exception:
                 _LOGGER.exception("Exception in notify thread")
                 self.re_authenticate(notify=True)
+
+    def _enable_pending_notifications(self) -> None:
+        """Enable notifications for the ids added with delayed=True."""
+        with self._mutex:
+            # Are there are any new ids to be added?
+            pending = list(self._newnotifyids)
+        if not pending:
+            return
+        if self.client.enable_runtime_notifications(pending):
+            done = pending
+        elif len(pending) == 1:
+            done = []
+        else:
+            done = [i for i in pending if self.client.enable_runtime_notification(i)]
+        failed = [i for i in pending if i not in done]
+        if failed and failed != self._failed_ids:
+            _LOGGER.warning("Could not enable notifications for %s, will retry", failed)
+        self._failed_ids = failed
+        if done:
+            with self._mutex:
+                self._newnotifyids = [i for i in self._newnotifyids if i not in done]
+
+    def _dispatch(self, ihcid: int, value: Any) -> None:
+        """Call the callbacks of a resource if its value changed."""
+        with self._mutex:
+            callbacks = list(self._ihcevents.get(ihcid, ()))
+            if not callbacks:
+                return
+            changed = ihcid not in self._ihcvalues or value != self._ihcvalues[ihcid]
+            self._ihcvalues[ihcid] = value
+        if not changed:
+            return
+        for callback in callbacks:
+            try:
+                callback(ihcid, value)
+            except Exception:
+                _LOGGER.exception("Exception in notify callback for %s", ihcid)
 
     def re_authenticate(self, notify: bool = False) -> bool:
         """
