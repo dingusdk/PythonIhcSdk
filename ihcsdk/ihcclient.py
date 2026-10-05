@@ -4,14 +4,18 @@
 import base64
 import datetime
 import io
+import logging
 import xml.etree.ElementTree as ET
 import zlib
 from typing import Any, ClassVar, Literal
+from xml.sax.saxutils import escape
 
 from ihcsdk.ihcconnection import IHCConnection
 from ihcsdk.ihcsslconnection import IHCSSLConnection
 
 IHCSTATE_READY = "text.ctrl.state.ready"
+
+_LOGGER = logging.getLogger(__name__)
 
 
 class IHCSoapClient:
@@ -37,7 +41,6 @@ class IHCSoapClient:
     def close(self) -> None:
         """Close the connection."""
         self.connection.close()
-        self.connection = None
 
     def authenticate(self, username: str, password: str) -> bool:
         """
@@ -55,7 +58,9 @@ class IHCSoapClient:
                           <username>{username}</username>
                           <application>treeview</application>
                           </authenticate1>"""
-        payload = auth_payload.format(password=self.password, username=self.username)
+        payload = auth_payload.format(
+            password=escape(self.password), username=escape(self.username)
+        )
 
         xdoc = self.connection.soap_action(
             "/ws/AuthenticationService", "authenticate", payload
@@ -81,7 +86,7 @@ class IHCSoapClient:
         """Wait for controller state change and return state."""
         payload = f"""<ns1:waitForControllerStateChange1
                      xmlns:ns1=\"utcs\" xsi:type=\"ns1:WSControllerState\">
-                     <ns1:state xsi:type=\"xsd:string\">{state}</ns1:state>
+                     <ns1:state xsi:type=\"xsd:string\">{escape(state)}</ns1:state>
                      </ns1:waitForControllerStateChange1>
                      <ns2:waitForControllerStateChange2
                      xmlns:ns2=\"utcs\" xsi:type=\"xsd:int\">
@@ -112,12 +117,15 @@ class IHCSoapClient:
             base64data = xdoc.find(
                 "./SOAP-ENV:Body/ns1:getIHCProject1/ns1:data", IHCSoapClient.ihcns
             ).text
-            if not base64:
+            if not base64data:
                 return False
             compresseddata = base64.b64decode(base64data)
-            return zlib.decompress(compresseddata, 16 + zlib.MAX_WBITS).decode(
-                "ISO-8859-1"
-            )
+            try:
+                return zlib.decompress(compresseddata, 16 + zlib.MAX_WBITS).decode(
+                    "ISO-8859-1"
+                )
+            except zlib.error:
+                _LOGGER.warning("The project data from the controller is corrupt")
         return False
 
     def get_project_in_segments(self, info: dict[str, Any] | None = None) -> str:
@@ -132,15 +140,21 @@ class IHCSoapClient:
         if info:
             project_major = info.get("projectMajorRevision", 0)
             project_minor = info.get("projectMinorRevision", 0)
+            segments = self.get_project_number_of_segments()
+            if not segments:
+                return False
             buffer = io.BytesIO()
-            for s in range(self.get_project_number_of_segments()):
+            for s in range(segments):
                 segment = self.get_project_segment(s, project_major, project_minor)
                 if segment is False:
                     return False
                 buffer.write(segment)
-            return zlib.decompress(buffer.getvalue(), 16 + zlib.MAX_WBITS).decode(
-                "ISO-8859-1"
-            )
+            try:
+                return zlib.decompress(buffer.getvalue(), 16 + zlib.MAX_WBITS).decode(
+                    "ISO-8859-1"
+                )
+            except zlib.error:
+                _LOGGER.warning("The project data from the controller is corrupt")
         return False
 
     def get_project_info(self) -> dict[str, Any]:
@@ -197,7 +211,7 @@ class IHCSoapClient:
                 "./SOAP-ENV:Body/ns1:getIHCProjectSegment4/ns1:data",
                 IHCSoapClient.ihcns,
             ).text
-            if not base64:
+            if not base64data:
                 return False
             return base64.b64decode(base64data)
         return False
@@ -258,7 +272,6 @@ class IHCSoapClient:
             <resourceID>{resourceid}</resourceID>
             <isValueRuntime>true</isValueRuntime>
             </setResourceValue1>
-            </s:Body>
             """
         xdoc = self.connection.soap_action(
             "/ws/ResourceInteractionService", "setResourceValue", payload
@@ -281,7 +294,6 @@ class IHCSoapClient:
             <resourceID>{resourceid}</resourceID>
             <isValueRuntime>true</isValueRuntime>
             </setResourceValue1>
-            </s:Body>
             """
         xdoc = self.connection.soap_action(
             "/ws/ResourceInteractionService", "setResourceValue", payload
@@ -309,7 +321,6 @@ class IHCSoapClient:
             <resourceID>{resourceid}</resourceID>
             <isValueRuntime>true</isValueRuntime>
             </setResourceValue1>
-            </s:Body>
             """
         xdoc = self.connection.soap_action(
             "/ws/ResourceInteractionService", "setResourceValue", payload
@@ -357,6 +368,19 @@ class IHCSoapClient:
         """Get a runtime value from the xml base on the type in the xml."""
         if resource_value is None:
             return None
+        try:
+            return IHCSoapClient.__parse_value(resource_value)
+        except (AttributeError, IndexError, KeyError, TypeError, ValueError):
+            _LOGGER.debug(
+                "Ignoring a value that could not be parsed: %s",
+                ET.tostring(resource_value)[:200],
+            )
+            return None
+
+    @staticmethod
+    def __parse_value(
+        resource_value: ET.Element,
+    ) -> bool | int | float | str | datetime.datetime | None:
         valuetype = resource_value.attrib[
             "{http://www.w3.org/2001/XMLSchema-instance}type"
         ].split(":")[1]
@@ -471,7 +495,7 @@ class IHCSoapClient:
             + "</setResourceValues1>"
         )
         xdoc = self.connection.soap_action(
-            "/ws/ResourceInteractionService", "SOAPAction: setResourceValues", payload
+            "/ws/ResourceInteractionService", "setResourceValues", payload
         )
         if xdoc is False:
             return None
@@ -548,7 +572,7 @@ class IHCSoapClient:
         """Get the controller state."""
         payload = f"""<getUserLog1 xmlns="utcs" />
                      <getUserLog2 xmlns="utcs">0</getUserLog2>
-                     <getUserLog3 xmlns="utcs">{language}</getUserLog3>
+                     <getUserLog3 xmlns="utcs">{escape(language)}</getUserLog3>
                      """
         xdoc = self.connection.soap_action(
             "/ws/ConfigurationService", "getUserLog", payload
