@@ -46,20 +46,23 @@ class IHCController:
     @staticmethod
     def is_ihc_controller(url: str) -> bool:
         """Will return True if the url respods like an IHC controller."""
+        client = IHCSoapClient(url)
         try:
-            client = IHCSoapClient(url)
             response = client.connection.session.get(
-                f"{url}/wsdl/controller.wsdl", verify=False
+                f"{url}/wsdl/controller.wsdl",
+                verify=False,
+                timeout=client.connection.timeout,
             )
-            client.close()
             if response.status_code != HTTPStatus.OK:
                 return False
-            if not response.headers["content-type"].startswith("text/xml"):
+            if not response.headers.get("content-type").startswith("text/xml"):
                 return False
             return not response.text.find("getIHCProject") < 0
         except requests.exceptions.RequestException as exp:
             _LOGGER.warning("is_ihc_controller %s", exp)
             return False
+        finally:
+            client.close()
 
     def authenticate(self) -> bool:
         """Authenticate and enable the registered notifications."""
@@ -73,12 +76,19 @@ class IHCController:
                 self.client.enable_runtime_notifications(self._ihcevents.keys())
             return True
 
-    def disconnect(self) -> None:
+    def disconnect(self, timeout: float | None = 60) -> None:
         """Disconnect by stopping the notification thread. And closing the client."""
         self._notifyrunning = False
-        # wait for notify thread to finish
-        while self._notifythread.is_alive():
-            time.sleep(0.1)  # Optional sleep to prevent busy waiting
+        thread = self._notifythread
+        if (
+            thread is not None
+            and thread.is_alive()
+            and thread is not threading.current_thread()
+        ):
+            # wait for notify thread to finish
+            thread.join(timeout)
+            if thread.is_alive():
+                _LOGGER.warning("The notification thread did not stop in time")
         self.client.close()
 
     def get_runtime_value(
@@ -88,6 +98,7 @@ class IHCController:
         value = self.client.get_runtime_value(ihcid)
         if value is not None:
             return value
+        # if we did not get a value we will try to re-authenticate and try again
         self.re_authenticate()
         return self.client.get_runtime_value(ihcid)
 
@@ -201,18 +212,25 @@ class IHCController:
                     self.re_authenticate(notify=True)
                     continue
                 for ihcid, value in changes:
-                    if ihcid in self._ihcevents:
-                        if (
-                            ihcid not in self._ihcvalues
-                            or value != self._ihcvalues[ihcid]
-                        ):
-                            for callback in self._ihcevents[ihcid]:
-                                callback(ihcid, value)
-                        self._ihcvalues[ihcid] = value
-
+                    self._dispatch(ihcid, value)
             except Exception:
                 _LOGGER.exception("Exception in notify thread")
                 self.re_authenticate(notify=True)
+
+    def _dispatch(self, ihcid: int, value: Any) -> None:
+        """Call the callbacks of a resource if its value changed."""
+        changed = ihcid not in self._ihcvalues or value != self._ihcvalues[ihcid]
+        self._ihcvalues[ihcid] = value
+        if not changed:
+            return
+        callbacks = list(self._ihcevents.get(ihcid, ()))
+        if not callbacks:
+            return
+        for callback in callbacks:
+            try:
+                callback(ihcid, value)
+            except Exception:
+                _LOGGER.exception("Exception in notify callback for %s", ihcid)
 
     def re_authenticate(self, notify: bool = False) -> bool:
         """
