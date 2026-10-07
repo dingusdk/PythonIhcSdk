@@ -272,7 +272,6 @@ class IHCSoapClient:
             <resourceID>{resourceid}</resourceID>
             <isValueRuntime>true</isValueRuntime>
             </setResourceValue1>
-            </s:Body>
             """
         xdoc = self.connection.soap_action(
             "/ws/ResourceInteractionService", "setResourceValue", payload
@@ -295,7 +294,6 @@ class IHCSoapClient:
             <resourceID>{resourceid}</resourceID>
             <isValueRuntime>true</isValueRuntime>
             </setResourceValue1>
-            </s:Body>
             """
         xdoc = self.connection.soap_action(
             "/ws/ResourceInteractionService", "setResourceValue", payload
@@ -323,7 +321,6 @@ class IHCSoapClient:
             <resourceID>{resourceid}</resourceID>
             <isValueRuntime>true</isValueRuntime>
             </setResourceValue1>
-            </s:Body>
             """
         xdoc = self.connection.soap_action(
             "/ws/ResourceInteractionService", "setResourceValue", payload
@@ -371,6 +368,19 @@ class IHCSoapClient:
         """Get a runtime value from the xml base on the type in the xml."""
         if resource_value is None:
             return None
+        try:
+            return IHCSoapClient.__parse_value(resource_value)
+        except (AttributeError, IndexError, KeyError, TypeError, ValueError):
+            _LOGGER.debug(
+                "Ignoring a value that could not be parsed: %s",
+                ET.tostring(resource_value)[:200],
+            )
+            return None
+
+    @staticmethod
+    def __parse_value(
+        resource_value: ET.Element,
+    ) -> bool | int | float | str | datetime.datetime | None:
         valuetype = resource_value.attrib[
             "{http://www.w3.org/2001/XMLSchema-instance}type"
         ].split(":")[1]
@@ -485,7 +495,7 @@ class IHCSoapClient:
             + "</setResourceValues1>"
         )
         xdoc = self.connection.soap_action(
-            "/ws/ResourceInteractionService", "SOAPAction: setResourceValues", payload
+            "/ws/ResourceInteractionService", "setResourceValues", payload
         )
         if xdoc is False:
             return None
