@@ -140,15 +140,21 @@ class IHCSoapClient:
         if info:
             project_major = info.get("projectMajorRevision", 0)
             project_minor = info.get("projectMinorRevision", 0)
+            segments = self.get_project_number_of_segments()
+            if not segments:
+                return False
             buffer = io.BytesIO()
-            for s in range(self.get_project_number_of_segments()):
+            for s in range(segments):
                 segment = self.get_project_segment(s, project_major, project_minor)
                 if segment is False:
                     return False
                 buffer.write(segment)
-            return zlib.decompress(buffer.getvalue(), 16 + zlib.MAX_WBITS).decode(
-                "ISO-8859-1"
-            )
+            try:
+                return zlib.decompress(buffer.getvalue(), 16 + zlib.MAX_WBITS).decode(
+                    "ISO-8859-1"
+                )
+            except zlib.error:
+                _LOGGER.warning("The project data from the controller is corrupt")
         return False
 
     def get_project_info(self) -> dict[str, Any]:
@@ -205,7 +211,7 @@ class IHCSoapClient:
                 "./SOAP-ENV:Body/ns1:getIHCProjectSegment4/ns1:data",
                 IHCSoapClient.ihcns,
             ).text
-            if not base64:
+            if not base64data:
                 return False
             return base64.b64decode(base64data)
         return False
