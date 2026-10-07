@@ -63,12 +63,16 @@ class IHCConnection:
         payloadbody: str,
         wait: Optional[int] = None,
     ) -> ET.Element | Literal[False]:
-        """Do a soap request.
+        """
+        Do a soap request.
 
         wait is the time in seconds the controller may hold a long poll
         before answering. It is added to the read timeout so a long poll
         never times out on the client side before it does on the controller.
         """
+        if self.session is None:
+            _LOGGER.debug("soap request on a closed connection ignored")
+            return False
         timeout = self.timeout
         if wait:
             timeout = (timeout[0], timeout[1] + wait)
