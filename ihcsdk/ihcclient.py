@@ -7,6 +7,7 @@ import io
 import xml.etree.ElementTree as ET
 import zlib
 from typing import Any, ClassVar, Literal
+from xml.sax.saxutils import escape
 
 from ihcsdk.ihcconnection import IHCConnection
 from ihcsdk.ihcsslconnection import IHCSSLConnection
@@ -55,8 +56,9 @@ class IHCSoapClient:
                           <username>{username}</username>
                           <application>treeview</application>
                           </authenticate1>"""
-        payload = auth_payload.format(password=self.password, username=self.username)
-
+        payload = auth_payload.format(
+            password=escape(self.password), username=escape(self.username)
+        )
         xdoc = self.connection.soap_action(
             "/ws/AuthenticationService", "authenticate", payload
         )
@@ -81,7 +83,7 @@ class IHCSoapClient:
         """Wait for controller state change and return state."""
         payload = f"""<ns1:waitForControllerStateChange1
                      xmlns:ns1=\"utcs\" xsi:type=\"ns1:WSControllerState\">
-                     <ns1:state xsi:type=\"xsd:string\">{state}</ns1:state>
+                     <ns1:state xsi:type=\"xsd:string\">{escape(state)}</ns1:state>
                      </ns1:waitForControllerStateChange1>
                      <ns2:waitForControllerStateChange2
                      xmlns:ns2=\"utcs\" xsi:type=\"xsd:int\">
@@ -548,7 +550,7 @@ class IHCSoapClient:
         """Get the controller state."""
         payload = f"""<getUserLog1 xmlns="utcs" />
                      <getUserLog2 xmlns="utcs">0</getUserLog2>
-                     <getUserLog3 xmlns="utcs">{language}</getUserLog3>
+                     <getUserLog3 xmlns="utcs">{escape(language)}</getUserLog3>
                      """
         xdoc = self.connection.soap_action(
             "/ws/ConfigurationService", "getUserLog", payload
