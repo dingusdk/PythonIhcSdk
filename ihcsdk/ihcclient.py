@@ -4,6 +4,7 @@
 import base64
 import datetime
 import io
+import logging
 import xml.etree.ElementTree as ET
 import zlib
 from typing import Any, ClassVar, Literal
@@ -13,6 +14,8 @@ from ihcsdk.ihcconnection import IHCConnection
 from ihcsdk.ihcsslconnection import IHCSSLConnection
 
 IHCSTATE_READY = "text.ctrl.state.ready"
+
+_LOGGER = logging.getLogger(__name__)
 
 
 class IHCSoapClient:
@@ -114,12 +117,15 @@ class IHCSoapClient:
             base64data = xdoc.find(
                 "./SOAP-ENV:Body/ns1:getIHCProject1/ns1:data", IHCSoapClient.ihcns
             ).text
-            if not base64:
+            if not base64data:
                 return False
             compresseddata = base64.b64decode(base64data)
-            return zlib.decompress(compresseddata, 16 + zlib.MAX_WBITS).decode(
-                "ISO-8859-1"
-            )
+            try:
+                return zlib.decompress(compresseddata, 16 + zlib.MAX_WBITS).decode(
+                    "ISO-8859-1"
+                )
+            except zlib.error:
+                _LOGGER.warning("The project data from the controller is corrupt")
         return False
 
     def get_project_in_segments(self, info: dict[str, Any] | None = None) -> str:
