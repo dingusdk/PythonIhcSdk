@@ -27,8 +27,6 @@ class IHCController:
     will re-authenticate if needed.
     """
 
-    _mutex = threading.Lock()
-
     def __init__(self, url: str, username: str, password: str) -> None:
         """Initialize the IHC controller with connection data."""
         self.client = IHCSoapClient(url)
@@ -42,6 +40,7 @@ class IHCController:
         self._notifyrunning = False
         self._newnotifyids = []
         self._project = None
+        self._mutex = threading.Lock()
 
     @staticmethod
     def is_ihc_controller(url: str) -> bool:
@@ -66,7 +65,7 @@ class IHCController:
 
     def authenticate(self) -> bool:
         """Authenticate and enable the registered notifications."""
-        with IHCController._mutex:
+        with self._mutex:
             _LOGGER.debug("Authenticating login on ihc controller")
             if not self.client.authenticate(self._username, self._password):
                 _LOGGER.debug("Authentication failed")
@@ -157,7 +156,7 @@ class IHCController:
 
     def get_project(self, insegments: bool = True) -> str:
         """Get the ihc project and make sure controller is ready before."""
-        with IHCController._mutex:
+        with self._mutex:
             if self._project is None:
                 if self.client.get_state() != IHCSTATE_READY:
                     ready = self.client.wait_for_state_change(IHCSTATE_READY, 10)
@@ -181,7 +180,7 @@ class IHCController:
         If delayed is set to true the enable request will be send from the
         notofication thread
         """
-        with IHCController._mutex:
+        with self._mutex:
             if resourceid in self._ihcevents:
                 self._ihcevents[resourceid].append(callback)
             else:
@@ -201,7 +200,7 @@ class IHCController:
         _LOGGER.debug("Starting notify thread")
         while self._notifyrunning:
             try:
-                with IHCController._mutex:
+                with self._mutex:
                     # Are there are any new ids to be added?
                     if self._newnotifyids:
                         self.client.enable_runtime_notifications(self._newnotifyids)
