@@ -365,7 +365,11 @@ class IHCSoapClient:
     def __get_value(
         resource_value: ET.Element,
     ) -> bool | int | float | str | datetime.datetime | None:
-        """Get a runtime value from the xml base on the type in the xml."""
+        """
+        Get a runtime value from the xml base on the type in the xml.
+
+        Return None if the value cannot be parsed or on error.
+        """
         if resource_value is None:
             return None
         try:
