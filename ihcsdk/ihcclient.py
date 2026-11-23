@@ -628,6 +628,38 @@ class IHCSoapClient:
             ),
         }
 
+    def get_detected_device_list(self) -> list[dict[str, Any]] | Literal[False]:
+        """
+        Get the wireless (airlink) devices the controller has detected.
+
+        For each device the controller reports the serial number, device type,
+        version, battery level (1 = ok, 0 = low) and the strength of the last
+        received signal (0 if nothing has been received).
+        """
+        xdoc = self.connection.soap_action(
+            "/ws/AirlinkManagementService", "getDetectedDeviceList", ""
+        )
+        if xdoc is False:
+            return False
+        devices = []
+        for item in xdoc.findall("./SOAP-ENV:Body//ns1:arrayItem", IHCSoapClient.ihcns):
+            # Child tags are "{utcs}name" - strip the namespace
+            values = {child.tag.rsplit("}", 1)[-1]: child.text for child in item}
+            try:
+                devices.append(
+                    {
+                        "serial_number": int(values["serialNumber"]),
+                        "device_type": int(values["deviceType"]),
+                        "version": int(values["version"]),
+                        "battery_level": int(values["batteryLevel"]),
+                        "signal_strength": int(values["signalStrength"]),
+                        "detected": values.get("detected") == "true",
+                    }
+                )
+            except (KeyError, TypeError, ValueError):
+                _LOGGER.debug("Skipping unreadable airlink device: %s", values)
+        return devices
+
     @staticmethod
     def _extract_sysinfo(xdoc: ET.Element, param: str) -> str:
         """Extract a parameter from system info."""
