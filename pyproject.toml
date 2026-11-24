@@ -7,7 +7,7 @@ name = "ihcsdk"
 version = "2.8.15"
 description = "IHC Python SDK"
 readme = "readme.md"
-license = { text = "GPL-3.0" }
+license = "GPL-3.0"
 authors = [
     { name = "Jens Nielsen" },
 ]
